@@ -9,6 +9,7 @@ import helmet from "helmet";
 // Import routes
 import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
+import productRoutes from "./routes/product.route.js";
 
 // Express Usages
 dotenv.config();
@@ -36,6 +37,7 @@ app.use(cors(corsOptions));
 // Routes
 app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
+app.use("/api/v1/products", productRoutes);
 
 // PayPal
 app.get("/api/config/paypal", (req, res) => {
