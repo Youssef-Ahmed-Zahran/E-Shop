@@ -11,6 +11,7 @@ import authRoutes from "./routes/auth.route.js";
 import userRoutes from "./routes/user.route.js";
 import productRoutes from "./routes/product.route.js";
 import categoryRoutes from "./routes/category.route.js";
+import brandRoutes from "./routes/brand.route.js";
 
 // Express Usages
 dotenv.config();
@@ -40,6 +41,7 @@ app.use("/api/v1/auth", authRoutes);
 app.use("/api/v1/users", userRoutes);
 app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/categories", categoryRoutes);
+app.use("/api/v1/brands", brandRoutes);
 
 // PayPal
 app.get("/api/config/paypal", (req, res) => {
