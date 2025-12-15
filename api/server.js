@@ -17,6 +17,7 @@ import reviewRoutes from "./routes/review.route.js";
 import cartRoutes from "./routes/cart.route.js";
 import orderRoutes from "./routes/order.route.js";
 import supplierRoutes from "./routes/supplier.route.js";
+import purchaseInvoiceRoutes from "./routes/purchaseInvoice.route.js";
 
 // Express Usages
 dotenv.config();
@@ -52,6 +53,7 @@ app.use("/api/v1/reviews", reviewRoutes);
 app.use("/api/v1/carts", cartRoutes);
 app.use("/api/v1/orders", orderRoutes);
 app.use("/api/v1/suppliers", supplierRoutes);
+app.use("/api/v1/purchaseInvoices", purchaseInvoiceRoutes);
 
 // PayPal
 app.get("/api/config/paypal", (req, res) => {
