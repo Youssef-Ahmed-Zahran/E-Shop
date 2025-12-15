@@ -13,6 +13,7 @@ import productRoutes from "./routes/product.route.js";
 import categoryRoutes from "./routes/category.route.js";
 import brandRoutes from "./routes/brand.route.js";
 import favouriteRoutes from "./routes/favourite.route.js";
+import reviewRoutes from "./routes/review.route.js";
 
 // Express Usages
 dotenv.config();
@@ -44,6 +45,7 @@ app.use("/api/v1/products", productRoutes);
 app.use("/api/v1/categories", categoryRoutes);
 app.use("/api/v1/brands", brandRoutes);
 app.use("/api/v1/favourites", favouriteRoutes);
+app.use("/api/v1/reviews", reviewRoutes);
 
 // PayPal
 app.get("/api/config/paypal", (req, res) => {
