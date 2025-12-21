@@ -245,6 +245,19 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       throw new Error("Order not found");
     }
 
+    // Check if order is being cancelled and wasn't already cancelled
+    if (status === "cancelled" && order.orderStatus !== "cancelled") {
+      // Restore products to stock
+      for (const item of order.orderItems) {
+        const product = await Product.findById(item.product);
+
+        if (product) {
+          product.stock += item.quantity;
+          await product.save();
+        }
+      }
+    }
+
     order.orderStatus = status;
 
     if (status === "delivered") {
