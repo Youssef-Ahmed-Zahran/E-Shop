@@ -8,6 +8,7 @@ import {
   updateProductStock,
   getFeaturedProducts,
   checkProductStock,
+  toggleFeaturedProduct,
 } from "../controllers/product.controller.js";
 import { verifyTokenAndAdmin } from "../middlewares/verifyToken.middleware.js";
 
@@ -24,5 +25,6 @@ router.post("/", verifyTokenAndAdmin, createProduct);
 router.put("/:id", verifyTokenAndAdmin, updateProduct);
 router.delete("/:id", verifyTokenAndAdmin, deleteProduct);
 router.patch("/:id/stock", verifyTokenAndAdmin, updateProductStock);
+router.patch("/:id/feature", verifyTokenAndAdmin, toggleFeaturedProduct);
 
 export default router;

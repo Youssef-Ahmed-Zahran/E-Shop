@@ -201,6 +201,49 @@ export const updateProduct = asyncHandler(async (req, res) => {
 });
 
 /**
+ *   @desc   Toggle product featured status
+ *   @route  /api/v1/products/:id/feature
+ *   @method  PATCH
+ *   @access  private (Admin)
+ */
+export const toggleFeaturedProduct = asyncHandler(async (req, res) => {
+  try {
+    const product = await Product.findById(req.params.id);
+
+    if (!product) {
+      return res.status(404).json({
+        success: false,
+        message: "Product not found",
+      });
+    }
+
+    // Toggle the featured status
+    product.isFeatured = !product.isFeatured;
+    await product.save();
+
+    // Populate and return updated product
+    const updatedProduct = await Product.findById(product._id)
+      .populate("category", "name")
+      .populate("brand", "name");
+
+    res.status(200).json({
+      success: true,
+      message: `Product ${
+        product.isFeatured ? "featured" : "unfeatured"
+      } successfully`,
+      data: updatedProduct,
+    });
+  } catch (error) {
+    console.error("Error in toggleFeaturedProduct controller:", error);
+    res.status(500).json({
+      success: false,
+      message: "Internal server error.",
+      error: error.message,
+    });
+  }
+});
+
+/**
  *   @desc   Delete Product
  *   @route  /api/products/:id
  *   @method  Delete
