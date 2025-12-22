@@ -301,3 +301,63 @@ export const toggleReviewApproval = asyncHandler(async (req, res) => {
       .json({ message: "Internal server error.", error: error.message });
   }
 });
+
+/**
+ *   @desc   Get all reviews
+ *   @route  /api/v1/reviews/admin/all
+ *   @method  GET
+ *   @access  private (Admin)
+ */
+export const getAllReviews = asyncHandler(async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Build filter
+    const filter = {};
+    
+    // Filter by approval status if provided
+    if (req.query.isApproved !== undefined) {
+      filter.isApproved = req.query.isApproved === "true";
+    }
+
+    // Filter by product if provided
+    if (req.query.productId) {
+      filter.product = req.query.productId;
+    }
+
+    // Filter by user if provided
+    if (req.query.userId) {
+      filter.user = req.query.userId;
+    }
+
+    // Get total count
+    const total = await Review.countDocuments(filter);
+
+    // Get reviews with populated fields
+    const reviews = await Review.find(filter)
+      .populate("user", "name email")
+      .populate("product", "name images price")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.status(200).json({
+      success: true,
+      count: reviews.length,
+      data: reviews,
+      pagination: {
+        total,
+        page,
+        pages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit),
+      },
+    });
+  } catch (error) {
+    console.error("Error in getAllReviews:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error.", error: error.message });
+  }
+});

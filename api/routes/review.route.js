@@ -6,6 +6,7 @@ import {
   updateReview,
   deleteReview,
   toggleReviewApproval,
+  getAllReviews,
 } from "../controllers/review.controller.js";
 import {
   verifyToken,
@@ -24,6 +25,7 @@ router.put("/:id", verifyToken, updateReview);
 router.delete("/:id", verifyToken, deleteReview);
 
 // Admin routes
+router.get("/admin/all", verifyTokenAndAdmin, getAllReviews);
 router.patch("/:id/approve", verifyTokenAndAdmin, toggleReviewApproval);
 
 export default router;
