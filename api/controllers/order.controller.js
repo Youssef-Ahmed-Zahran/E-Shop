@@ -102,7 +102,7 @@ export const createOrder = asyncHandler(async (req, res) => {
     console.error("Error in createOrder:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
     throw error;
   } finally {
     session.endSession();
@@ -245,27 +245,48 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       throw new Error("Order not found");
     }
 
+    // Prevent status change if order is already delivered
+    if (order.orderStatus === "delivered" && status !== "delivered") {
+      res.status(400);
+      throw new Error("Cannot change status of delivered order");
+    }
+
     // Check if order is being cancelled and wasn't already cancelled
     if (status === "cancelled" && order.orderStatus !== "cancelled") {
-      // Restore products to stock
-      for (const item of order.orderItems) {
-        const product = await Product.findById(item.product);
+      const session = await mongoose.startSession();
+      session.startTransaction();
 
-        if (product) {
-          product.stock += item.quantity;
-          await product.save();
+      try {
+        // Restore products to stock
+        for (const item of order.items) {
+          await Product.findByIdAndUpdate(
+            item.product,
+            { $inc: { stock: item.quantity } },
+            { session }
+          );
         }
+
+        order.orderStatus = status;
+        await order.save({ session });
+
+        await session.commitTransaction();
+        session.endSession();
+      } catch (error) {
+        await session.abortTransaction();
+        session.endSession();
+        throw error;
       }
+    } else {
+      // Regular status update (no stock changes)
+      order.orderStatus = status;
+
+      if (status === "delivered") {
+        order.isDelivered = true;
+        order.deliveredAt = Date.now();
+      }
+
+      await order.save();
     }
-
-    order.orderStatus = status;
-
-    if (status === "delivered") {
-      order.isDelivered = true;
-      order.deliveredAt = Date.now();
-    }
-
-    await order.save();
 
     res.status(200).json({
       success: true,
@@ -276,7 +297,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     console.error("Error in updateOrderStatus:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -295,6 +316,20 @@ export const updateOrderToPaid = asyncHandler(async (req, res) => {
       throw new Error("Order not found");
     }
 
+    // Check if user owns this order or is admin
+    if (
+      order.user.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      res.status(403);
+      throw new Error("Not authorized to update this order");
+    }
+
+    if (order.isPaid) {
+      res.status(400);
+      throw new Error("Order is already paid");
+    }
+
     order.isPaid = true;
     order.paidAt = Date.now();
     order.paymentResult = {
@@ -303,6 +338,11 @@ export const updateOrderToPaid = asyncHandler(async (req, res) => {
       update_time: req.body.update_time,
       email_address: req.body.email_address,
     };
+
+    // Automatically update order status to processing when paid
+    if (order.orderStatus === "pending") {
+      order.orderStatus = "processing";
+    }
 
     const updatedOrder = await order.save();
 
@@ -315,7 +355,7 @@ export const updateOrderToPaid = asyncHandler(async (req, res) => {
     console.error("Error in updateOrderToPaid:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -342,9 +382,21 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     throw new Error("Not authorized to cancel this order");
   }
 
+  // Check if order can be cancelled
   if (order.orderStatus === "delivered") {
     res.status(400);
     throw new Error("Cannot cancel delivered order");
+  }
+
+  if (order.orderStatus === "cancelled") {
+    res.status(400);
+    throw new Error("Order is already cancelled");
+  }
+
+  // Prevent cancellation if already shipped (optional - remove if you want to allow)
+  if (order.orderStatus === "shipped") {
+    res.status(400);
+    throw new Error("Cannot cancel shipped order. Please contact support.");
   }
 
   const session = await mongoose.startSession();
@@ -367,11 +419,15 @@ export const cancelOrder = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Order cancelled successfully",
+      message: "Order cancelled successfully and stock restored",
       data: order,
     });
   } catch (error) {
     await session.abortTransaction();
+    console.error("Error in cancelOrder:", error);
+    res
+      .status(500)
+      .json({ message: error.message || "Internal server error." });
     throw error;
   } finally {
     session.endSession();
