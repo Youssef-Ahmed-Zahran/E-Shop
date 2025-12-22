@@ -22,7 +22,7 @@ const updateProductRating = async (productId) => {
     // Update product with new rating and review count
     await Product.findByIdAndUpdate(productId, {
       rating: Math.round(rating * 10) / 10, // Round to 1 decimal place
-      data: numReviews,
+      numReviews: numReviews,
     });
 
     console.log(`✅ Product rating updated: ${rating} (${numReviews} reviews)`);
@@ -96,7 +96,7 @@ export const createReview = asyncHandler(async (req, res) => {
     console.error("Error in createReview:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -115,6 +115,13 @@ export const getProductReviews = asyncHandler(async (req, res) => {
   const filter = { product: productId };
 
   try {
+    // Verify product exists
+    const product = await Product.findById(productId);
+    if (!product) {
+      res.status(404);
+      throw new Error("Product not found");
+    }
+
     if (req.query.isApproved !== undefined) {
       filter.isApproved = req.query.isApproved === "true";
     } else {
@@ -142,7 +149,7 @@ export const getProductReviews = asyncHandler(async (req, res) => {
     console.error("Error in getProductReviews:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -167,7 +174,7 @@ export const getUserReviews = asyncHandler(async (req, res) => {
     console.error("Error in getUserReviews:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -178,9 +185,9 @@ export const getUserReviews = asyncHandler(async (req, res) => {
  *   @access  private
  */
 export const updateReview = asyncHandler(async (req, res) => {
-  const review = await Review.findById(req.params.id);
-
   try {
+    const review = await Review.findById(req.params.id);
+
     if (!review) {
       res.status(404);
       throw new Error("Review not found");
@@ -195,13 +202,21 @@ export const updateReview = asyncHandler(async (req, res) => {
     const { rating, comment } = req.body;
 
     // Validate rating if provided
-    if (rating && (rating < 1 || rating > 5)) {
-      res.status(400);
-      throw new Error("Rating must be between 1 and 5");
+    if (rating !== undefined) {
+      if (rating < 1 || rating > 5) {
+        res.status(400);
+        throw new Error("Rating must be between 1 and 5");
+      }
+      review.rating = rating;
     }
 
-    if (rating) review.rating = rating;
-    if (comment) review.comment = comment;
+    if (comment !== undefined) {
+      if (!comment.trim()) {
+        res.status(400);
+        throw new Error("Comment cannot be empty");
+      }
+      review.comment = comment;
+    }
 
     await review.save();
 
@@ -221,7 +236,7 @@ export const updateReview = asyncHandler(async (req, res) => {
     console.error("Error in updateReview:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -232,9 +247,9 @@ export const updateReview = asyncHandler(async (req, res) => {
  *   @access  private
  */
 export const deleteReview = asyncHandler(async (req, res) => {
-  const review = await Review.findById(req.params.id);
-
   try {
+    const review = await Review.findById(req.params.id);
+
     if (!review) {
       res.status(404);
       throw new Error("Review not found");
@@ -263,7 +278,7 @@ export const deleteReview = asyncHandler(async (req, res) => {
     console.error("Error in deleteReview:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
@@ -298,12 +313,12 @@ export const toggleReviewApproval = asyncHandler(async (req, res) => {
     console.error("Error in toggleReviewApproval:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
   }
 });
 
 /**
- *   @desc   Get all reviews
+ *   @desc   Get all reviews (Admin)
  *   @route  /api/v1/reviews/admin/all
  *   @method  GET
  *   @access  private (Admin)
@@ -316,7 +331,7 @@ export const getAllReviews = asyncHandler(async (req, res) => {
 
     // Build filter
     const filter = {};
-    
+
     // Filter by approval status if provided
     if (req.query.isApproved !== undefined) {
       filter.isApproved = req.query.isApproved === "true";
@@ -330,6 +345,11 @@ export const getAllReviews = asyncHandler(async (req, res) => {
     // Filter by user if provided
     if (req.query.userId) {
       filter.user = req.query.userId;
+    }
+
+    // Filter by rating if provided
+    if (req.query.rating) {
+      filter.rating = parseInt(req.query.rating);
     }
 
     // Get total count
@@ -358,6 +378,53 @@ export const getAllReviews = asyncHandler(async (req, res) => {
     console.error("Error in getAllReviews:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
+  }
+});
+
+/**
+ *   @desc   Bulk approve reviews
+ *   @route  /api/v1/reviews/admin/bulk-approve
+ *   @method  PATCH
+ *   @access  private (Admin)
+ */
+//allows admins to approve multiple reviews at once
+export const bulkApproveReviews = asyncHandler(async (req, res) => {
+  const { reviewIds } = req.body;
+
+  try {
+    if (!reviewIds || !Array.isArray(reviewIds) || reviewIds.length === 0) {
+      res.status(400);
+      throw new Error("Please provide an array of review IDs");
+    }
+
+    // Update all reviews to approved
+    const result = await Review.updateMany(
+      { _id: { $in: reviewIds } },
+      { isApproved: true }
+    );
+
+    // Get unique product IDs from updated reviews
+    const reviews = await Review.find({ _id: { $in: reviewIds } });
+    const productIds = [...new Set(reviews.map((r) => r.product.toString()))];
+
+    // Update rating for all affected products
+    for (const productId of productIds) {
+      await updateProductRating(productId);
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `${result.modifiedCount} reviews approved successfully`,
+      data: {
+        modifiedCount: result.modifiedCount,
+        affectedProducts: productIds.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error in bulkApproveReviews:", error);
+    res
+      .status(500)
+      .json({ message: error.message || "Internal server error." });
   }
 });
