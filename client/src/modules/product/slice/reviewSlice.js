@@ -74,6 +74,13 @@ const toggleReviewApproval = async (id) => {
   return response.data;
 };
 
+const bulkApproveReviews = async (reviewIds) => {
+  const response = await axiosInstance.patch("/reviews/admin/bulk-approve", {
+    reviewIds,
+  });
+  return response.data;
+};
+
 // *********************************** ((React-Query Hooks)) **************************************** //
 
 export const useCreateReview = () => {
@@ -108,7 +115,6 @@ export const useGetUserReviews = () => {
   });
 };
 
-// New: Hook for getting all reviews (admin)
 export const useGetAllReviews = (filters = {}) => {
   return useQuery({
     queryKey: [...ALL_REVIEWS_QUERY_KEY, filters],
@@ -151,6 +157,19 @@ export const useToggleReviewApproval = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: PRODUCT_REVIEWS_QUERY_KEY });
       queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
+    },
+  });
+};
+
+export const useBulkApproveReviews = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: bulkApproveReviews,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: PRODUCT_REVIEWS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: ["products"] });
     },
   });
 };
