@@ -5,7 +5,7 @@ import { Supplier } from "../models/supplier.model.js";
 import mongoose from "mongoose";
 
 /**
- *   @desc   Create purchase invoice and update stock
+ *   @desc   Create purchase invoice and update stock (Products MUST exist)
  *   @route  /api/v1/purchase-invoices
  *   @method  POST
  *   @access  private (Admin)
@@ -31,52 +31,41 @@ export const createPurchaseInvoice = asyncHandler(async (req, res) => {
   try {
     let subtotal = 0;
     const processedItems = [];
+    const notFoundProducts = [];
 
     // Process each item
     for (const item of items) {
-      const { productId, productName, quantity, unitPrice, category, brand } =
-        item;
+      const { productId, quantity, unitPrice } = item;
 
-      let product;
-
-      // Check if product exists
-      if (productId) {
-        product = await Product.findById(productId).session(session);
-      } else if (productName) {
-        // Try to find by name and supplier
-        product = await Product.findOne({
-          name: productName,
-          supplier: supplierId,
-        }).session(session);
+      // Validate required fields
+      if (!productId) {
+        throw new Error("Product ID is required for all items");
       }
 
-      // If product doesn't exist, create it
+      if (!quantity || quantity < 1) {
+        throw new Error("Valid quantity is required for all items");
+      }
+
+      if (!unitPrice || unitPrice < 0) {
+        throw new Error("Valid unit price is required for all items");
+      }
+
+      // Check if product exists in store
+      const product = await Product.findById(productId).session(session);
+
       if (!product) {
-        if (!productName || !category || !brand) {
-          throw new Error(
-            "Product name, category, and brand are required for new products"
-          );
-        }
-
-        product = await Product.create(
-          [
-            {
-              name: productName,
-              description: `Product from ${supplier.name}`,
-              price: unitPrice * 1.3, // Add 30% markup as selling price
-              category,
-              brand,
-              supplier: supplierId,
-              stock: 0,
-              isActive: true,
-            },
-          ],
-          { session }
-        );
-        product = product[0];
+        notFoundProducts.push(productId);
+        continue;
       }
 
-      // Update stock
+      // Verify product belongs to this supplier (optional but recommended)
+      if (product.supplier && product.supplier.toString() !== supplierId) {
+        throw new Error(
+          `Product "${product.name}" is not associated with this supplier`
+        );
+      }
+
+      // Update stock - add received quantity
       product.stock += quantity;
       await product.save({ session });
 
@@ -89,6 +78,20 @@ export const createPurchaseInvoice = asyncHandler(async (req, res) => {
         unitPrice,
         totalPrice,
       });
+    }
+
+    // If any products were not found, abort transaction
+    if (notFoundProducts.length > 0) {
+      throw new Error(
+        `The following products do not exist in store: ${notFoundProducts.join(
+          ", "
+        )}. Please add them to the store first.`
+      );
+    }
+
+    // If no items were processed successfully
+    if (processedItems.length === 0) {
+      throw new Error("No valid products to process");
     }
 
     // Calculate total amount
@@ -130,7 +133,7 @@ export const createPurchaseInvoice = asyncHandler(async (req, res) => {
     console.error("Error in createPurchaseInvoice:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
+      .json({ message: error.message || "Internal server error." });
     throw error;
   } finally {
     session.endSession();
@@ -236,7 +239,7 @@ export const getInvoicesBySupplier = asyncHandler(async (req, res) => {
 });
 
 /**
- *   @desc   Delete purchase invoice
+ *   @desc   Delete purchase invoice (WARNING: Does not restore stock)
  *   @route  /api/v1/purchase-invoices/:id
  *   @method  DELETE
  *   @access  private (Admin)
@@ -254,10 +257,129 @@ export const deletePurchaseInvoice = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       success: true,
-      message: "Purchase invoice deleted successfully",
+      message:
+        "Purchase invoice deleted successfully. Note: Stock was not adjusted.",
     });
   } catch (error) {
     console.error("Error in deletePurchaseInvoice:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error.", error: error.message });
+  }
+});
+
+/**
+ *   @desc   Cancel purchase invoice and restore stock
+ *   @route  /api/v1/purchase-invoices/:id/cancel
+ *   @method  PATCH
+ *   @access  private (Admin)
+ */
+export const cancelPurchaseInvoice = asyncHandler(async (req, res) => {
+  const invoice = await PurchaseInvoice.findById(req.params.id);
+
+  if (!invoice) {
+    res.status(404);
+    throw new Error("Purchase invoice not found");
+  }
+
+  const session = await mongoose.startSession();
+  session.startTransaction();
+
+  try {
+    // Restore product stock (subtract the received quantity)
+    for (const item of invoice.items) {
+      const product = await Product.findById(item.product).session(session);
+
+      if (product) {
+        // Make sure we don't go below 0
+        product.stock = Math.max(0, product.stock - item.quantity);
+        await product.save({ session });
+      }
+    }
+
+    // Delete the invoice
+    await invoice.deleteOne({ session });
+
+    await session.commitTransaction();
+
+    res.status(200).json({
+      success: true,
+      message: "Purchase invoice cancelled and stock restored successfully",
+    });
+  } catch (error) {
+    await session.abortTransaction();
+    console.error("Error in cancelPurchaseInvoice:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error.", error: error.message });
+    throw error;
+  } finally {
+    session.endSession();
+  }
+});
+
+/**
+ *   @desc   Validate products before creating invoice
+ *   @route  /api/v1/purchase-invoices/validate-products
+ *   @method  POST
+ *   @access  private (Admin)
+ */
+export const validateProductsForInvoice = asyncHandler(async (req, res) => {
+  const { supplierId, productIds } = req.body;
+
+  if (!productIds || productIds.length === 0) {
+    res.status(400);
+    throw new Error("Product IDs are required");
+  }
+
+  try {
+    const validProducts = [];
+    const invalidProducts = [];
+
+    for (const productId of productIds) {
+      const product = await Product.findById(productId)
+        .populate("supplier", "name")
+        .populate("category", "name")
+        .populate("brand", "name");
+
+      if (!product) {
+        invalidProducts.push({
+          productId,
+          reason: "Product not found in store",
+        });
+      } else if (
+        supplierId &&
+        product.supplier &&
+        product.supplier._id.toString() !== supplierId
+      ) {
+        invalidProducts.push({
+          productId,
+          productName: product.name,
+          reason: `Product belongs to supplier: ${product.supplier.name}`,
+        });
+      } else {
+        validProducts.push({
+          _id: product._id,
+          name: product.name,
+          currentStock: product.stock,
+          price: product.price,
+          category: product.category?.name,
+          brand: product.brand?.name,
+          supplier: product.supplier?.name,
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        validProducts,
+        invalidProducts,
+        allValid: invalidProducts.length === 0,
+      },
+    });
+  } catch (error) {
+    console.error("Error in validateProductsForInvoice:", error);
     res
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
