@@ -4,7 +4,6 @@ const purchaseInvoiceSchema = new mongoose.Schema(
   {
     invoiceNumber: {
       type: String,
-      required: true,
       unique: true,
     },
 
@@ -31,7 +30,6 @@ const purchaseInvoiceSchema = new mongoose.Schema(
           required: true,
           min: 1,
         },
-        // What the store pays the supplier (cost price)
         unitPrice: {
           type: Number,
           required: true,
@@ -71,12 +69,11 @@ const purchaseInvoiceSchema = new mongoose.Schema(
 );
 
 // Generate invoice number before saving
-purchaseInvoiceSchema.pre("save", async function (next) {
+purchaseInvoiceSchema.pre("save", async function () {
   if (!this.invoiceNumber) {
     const count = await this.constructor.countDocuments();
     this.invoiceNumber = `PI-${Date.now()}-${count + 1}`;
   }
-  next();
 });
 
 export const PurchaseInvoice = mongoose.model(

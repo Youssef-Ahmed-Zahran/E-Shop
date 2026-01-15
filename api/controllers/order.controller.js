@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Order } from "../models/order.model.js";
 import { Product } from "../models/product.model.js";
 import { Cart } from "../models/cart.model.js";
@@ -10,19 +9,18 @@ import mongoose from "mongoose";
  *   @method  POST
  *   @access  private
  */
-export const createOrder = asyncHandler(async (req, res) => {
-  const { items, shippingAddress, paymentMethod, shippingCost, taxAmount } =
-    req.body;
-
-  if (!items || items.length === 0) {
-    res.status(400);
-    throw new Error("No order items");
-  }
-
+export const createOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+    const { items, shippingAddress, paymentMethod, shippingCost, taxAmount } =
+      req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "No order items" });
+    }
+
     let subtotal = 0;
     const orderItems = [];
 
@@ -103,11 +101,10 @@ export const createOrder = asyncHandler(async (req, res) => {
     res
       .status(500)
       .json({ message: error.message || "Internal server error." });
-    throw error;
   } finally {
     session.endSession();
   }
-});
+};
 
 /**
  *   @desc   Get order by ID
@@ -115,15 +112,14 @@ export const createOrder = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private
  */
-export const getOrderById = asyncHandler(async (req, res) => {
+export const getOrderById = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate("user", "name email phone")
       .populate("items.product", "name price brand images");
 
     if (!order) {
-      res.status(404);
-      throw new Error("Order not found");
+      return res.status(404).json({ message: "Order not found" });
     }
 
     // Check if user owns this order or is admin
@@ -131,8 +127,9 @@ export const getOrderById = asyncHandler(async (req, res) => {
       order.user._id.toString() !== req.user._id.toString() &&
       req.user.role !== "admin"
     ) {
-      res.status(403);
-      throw new Error("Not authorized to view this order");
+      return res
+        .status(403)
+        .json({ message: "Not authorized to view this order" });
     }
 
     res.status(200).json({
@@ -145,7 +142,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get logged in user orders
@@ -153,7 +150,7 @@ export const getOrderById = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private
  */
-export const getMyOrders = asyncHandler(async (req, res) => {
+export const getMyOrders = async (req, res) => {
   try {
     const orders = await Order.find({ user: req.user._id })
       .populate("items.product", "name price images")
@@ -170,7 +167,7 @@ export const getMyOrders = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get all orders
@@ -178,17 +175,17 @@ export const getMyOrders = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (admin)
  */
-export const getAllOrders = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const filter = {};
-  if (req.query.status) {
-    filter.orderStatus = req.query.status;
-  }
-
+export const getAllOrders = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    if (req.query.status) {
+      filter.orderStatus = req.query.status;
+    }
+
     const total = await Order.countDocuments(filter);
     const orders = await Order.find(filter)
       .populate("user", "name email")
@@ -213,7 +210,7 @@ export const getAllOrders = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Update order status
@@ -221,34 +218,38 @@ export const getAllOrders = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (admin)
  */
-export const updateOrderStatus = asyncHandler(async (req, res) => {
-  const { status } = req.body;
-
-  const validStatuses = [
-    "pending",
-    "processing",
-    "shipped",
-    "delivered",
-    "cancelled",
-  ];
-
+export const updateOrderStatus = async (req, res) => {
   try {
+    const { status } = req.body;
+    const validStatuses = [
+      "pending",
+      "processing",
+      "shipped",
+      "delivered",
+      "cancelled",
+    ];
+
     if (!validStatuses.includes(status)) {
-      res.status(400);
-      throw new Error("Invalid order status");
+      return res.status(400).json({ message: "Invalid order status" });
     }
 
     const order = await Order.findById(req.params.id);
-
     if (!order) {
-      res.status(404);
-      throw new Error("Order not found");
+      return res.status(404).json({ message: "Order not found" });
     }
 
     // Prevent status change if order is already delivered
     if (order.orderStatus === "delivered" && status !== "delivered") {
-      res.status(400);
-      throw new Error("Cannot change status of delivered order");
+      return res
+        .status(400)
+        .json({ message: "Cannot change status of delivered order" });
+    }
+
+    // Prevent status change if order is already cancelled
+    if (order.orderStatus === "cancelled" && status !== "cancelled") {
+      return res
+        .status(400)
+        .json({ message: "Cannot change status of cancelled order" });
     }
 
     // Check if order is being cancelled and wasn't already cancelled
@@ -267,6 +268,8 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
         }
 
         order.orderStatus = status;
+        order.isCancelled = true;
+        order.cancelledAt = Date.now();
         await order.save({ session });
 
         await session.commitTransaction();
@@ -279,12 +282,10 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
     } else {
       // Regular status update (no stock changes)
       order.orderStatus = status;
-
       if (status === "delivered") {
         order.isDelivered = true;
         order.deliveredAt = Date.now();
       }
-
       await order.save();
     }
 
@@ -299,7 +300,7 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Update order to paid
@@ -307,13 +308,12 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private
  */
-export const updateOrderToPaid = asyncHandler(async (req, res) => {
+export const updateOrderToPaid = async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
 
     if (!order) {
-      res.status(404);
-      throw new Error("Order not found");
+      return res.status(404).json({ message: "Order not found" });
     }
 
     // Check if user owns this order or is admin
@@ -321,13 +321,13 @@ export const updateOrderToPaid = asyncHandler(async (req, res) => {
       order.user.toString() !== req.user._id.toString() &&
       req.user.role !== "admin"
     ) {
-      res.status(403);
-      throw new Error("Not authorized to update this order");
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this order" });
     }
 
     if (order.isPaid) {
-      res.status(400);
-      throw new Error("Order is already paid");
+      return res.status(400).json({ message: "Order is already paid" });
     }
 
     order.isPaid = true;
@@ -357,7 +357,7 @@ export const updateOrderToPaid = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Cancel order
@@ -365,44 +365,45 @@ export const updateOrderToPaid = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private
  */
-export const cancelOrder = asyncHandler(async (req, res) => {
-  const order = await Order.findById(req.params.id);
-
-  if (!order) {
-    res.status(404);
-    throw new Error("Order not found");
-  }
-
-  // Check authorization
-  if (
-    order.user.toString() !== req.user._id.toString() &&
-    req.user.role !== "admin"
-  ) {
-    res.status(403);
-    throw new Error("Not authorized to cancel this order");
-  }
-
-  // Check if order can be cancelled
-  if (order.orderStatus === "delivered") {
-    res.status(400);
-    throw new Error("Cannot cancel delivered order");
-  }
-
-  if (order.orderStatus === "cancelled") {
-    res.status(400);
-    throw new Error("Order is already cancelled");
-  }
-
-  // Prevent cancellation if already shipped (optional - remove if you want to allow)
-  if (order.orderStatus === "shipped") {
-    res.status(400);
-    throw new Error("Cannot cancel shipped order. Please contact support.");
-  }
-
+export const cancelOrder = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+    const order = await Order.findById(req.params.id);
+
+    if (!order) {
+      return res.status(404).json({ message: "Order not found" });
+    }
+
+    // Check authorization
+    if (
+      order.user.toString() !== req.user._id.toString() &&
+      req.user.role !== "admin"
+    ) {
+      return res
+        .status(403)
+        .json({ message: "Not authorized to cancel this order" });
+    }
+
+    // Check if order can be cancelled
+    if (order.orderStatus === "delivered") {
+      return res.status(400).json({ message: "Cannot cancel delivered order" });
+    }
+
+    if (order.orderStatus === "cancelled") {
+      return res.status(400).json({ message: "Order is already cancelled" });
+    }
+
+    // Prevent cancellation if already shipped (optional - remove if you want to allow)
+    if (order.orderStatus === "shipped") {
+      return res
+        .status(400)
+        .json({
+          message: "Cannot cancel shipped order. Please contact support.",
+        });
+    }
+
     // Restore product stock
     for (const item of order.items) {
       await Product.findByIdAndUpdate(
@@ -428,8 +429,7 @@ export const cancelOrder = asyncHandler(async (req, res) => {
     res
       .status(500)
       .json({ message: error.message || "Internal server error." });
-    throw error;
   } finally {
     session.endSession();
   }
-});
+};

@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Supplier } from "../models/supplier.model.js";
 
 /**
@@ -7,16 +6,17 @@ import { Supplier } from "../models/supplier.model.js";
  *   @method  POST
  *   @access  private (Admin)
  */
-export const createSupplier = asyncHandler(async (req, res) => {
-  const { name, email, phone, address, company } = req.body;
-
+export const createSupplier = async (req, res) => {
   try {
+    const { name, email, phone, address, company } = req.body;
+
     // Check if supplier already exists
     const supplierExists = await Supplier.findOne({ email });
 
     if (supplierExists) {
-      res.status(400);
-      throw new Error("Supplier with this email already exists");
+      return res
+        .status(400)
+        .json({ message: "Supplier with this email already exists" });
     }
 
     const supplier = await Supplier.create({
@@ -38,7 +38,7 @@ export const createSupplier = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get all suppliers
@@ -46,17 +46,17 @@ export const createSupplier = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (Admin)
  */
-export const getAllSuppliers = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const filter = {};
-  if (req.query.isActive !== undefined) {
-    filter.isActive = req.query.isActive === "true";
-  }
-
+export const getAllSuppliers = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const filter = {};
+    if (req.query.isActive !== undefined) {
+      filter.isActive = req.query.isActive === "true";
+    }
+
     const total = await Supplier.countDocuments(filter);
     const suppliers = await Supplier.find(filter)
       .sort({ createdAt: -1 })
@@ -79,7 +79,7 @@ export const getAllSuppliers = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get supplier by ID
@@ -87,13 +87,12 @@ export const getAllSuppliers = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (Admin)
  */
-export const getSupplierById = asyncHandler(async (req, res) => {
+export const getSupplierById = async (req, res) => {
   try {
     const supplier = await Supplier.findById(req.params.id);
 
     if (!supplier) {
-      res.status(404);
-      throw new Error("Supplier not found");
+      return res.status(404).json({ message: "Supplier not found" });
     }
 
     res.status(200).json({
@@ -106,7 +105,7 @@ export const getSupplierById = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Update supplier
@@ -114,13 +113,12 @@ export const getSupplierById = asyncHandler(async (req, res) => {
  *   @method  PUT
  *   @access  private (Admin)
  */
-export const updateSupplier = asyncHandler(async (req, res) => {
+export const updateSupplier = async (req, res) => {
   try {
     const supplier = await Supplier.findById(req.params.id);
 
     if (!supplier) {
-      res.status(404);
-      throw new Error("Supplier not found");
+      return res.status(404).json({ message: "Supplier not found" });
     }
 
     const updatedSupplier = await Supplier.findByIdAndUpdate(
@@ -140,7 +138,7 @@ export const updateSupplier = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Delete supplier
@@ -148,13 +146,12 @@ export const updateSupplier = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private (Admin)
  */
-export const deleteSupplier = asyncHandler(async (req, res) => {
+export const deleteSupplier = async (req, res) => {
   try {
     const supplier = await Supplier.findById(req.params.id);
 
     if (!supplier) {
-      res.status(404);
-      throw new Error("Supplier not found");
+      return res.status(404).json({ message: "Supplier not found" });
     }
 
     await supplier.deleteOne();
@@ -169,7 +166,7 @@ export const deleteSupplier = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Toggle supplier active status
@@ -177,13 +174,12 @@ export const deleteSupplier = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (Admin)
  */
-export const toggleSupplierStatus = asyncHandler(async (req, res) => {
+export const toggleSupplierStatus = async (req, res) => {
   try {
     const supplier = await Supplier.findById(req.params.id);
 
     if (!supplier) {
-      res.status(404);
-      throw new Error("Supplier not found");
+      return res.status(404).json({ message: "Supplier not found" });
     }
 
     supplier.isActive = !supplier.isActive;
@@ -202,4 +198,4 @@ export const toggleSupplierStatus = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};

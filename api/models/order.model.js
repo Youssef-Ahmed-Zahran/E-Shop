@@ -5,7 +5,6 @@ const orderSchema = new mongoose.Schema(
     orderNumber: {
       type: String,
       unique: true,
-      required: true,
     },
 
     user: {
@@ -57,7 +56,7 @@ const orderSchema = new mongoose.Schema(
       update_time: { type: String },
       email_address: { type: String },
     },
-    
+
     orderStatus: {
       type: String,
       enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
@@ -108,12 +107,11 @@ const orderSchema = new mongoose.Schema(
 );
 
 // Auto-generate order number
-orderSchema.pre("save", async function (next) {
+orderSchema.pre("validate", async function () {
   if (!this.orderNumber) {
     const count = await mongoose.model("Order").countDocuments();
     this.orderNumber = `ORD-${Date.now()}-${count + 1}`;
   }
-  next();
 });
 
 export const Order = mongoose.model("Order", orderSchema);

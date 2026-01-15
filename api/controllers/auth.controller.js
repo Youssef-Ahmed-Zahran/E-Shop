@@ -1,8 +1,6 @@
-import asyncHandler from "express-async-handler";
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import generateToken from "../utils/createToken.js";
-import { data } from "react-router-dom";
 
 /**
  *   @desc   Register New User
@@ -10,7 +8,7 @@ import { data } from "react-router-dom";
  *   @method  Post
  *   @access  public
  */
-export const register = asyncHandler(async (req, res) => {
+export const register = async (req, res) => {
   try {
     const { name, email, password, phone, address } = req.body;
 
@@ -22,8 +20,7 @@ export const register = asyncHandler(async (req, res) => {
     const userExists = await User.findOne({ email });
 
     if (userExists) {
-      res.status(400);
-      throw new Error("User already exists");
+      return res.status(400).json({ message: "User already exists" });
     }
 
     if (password.length < 6) {
@@ -50,8 +47,7 @@ export const register = asyncHandler(async (req, res) => {
 
       res.status(201).json({ data: user });
     } else {
-      res.status(400);
-      throw new Error("Invalid user data");
+      res.status(400).json({ message: "Invalid user data" });
     }
   } catch (error) {
     console.error("Error in register controller:", error);
@@ -59,7 +55,7 @@ export const register = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Login User
@@ -67,30 +63,29 @@ export const register = asyncHandler(async (req, res) => {
  *   @method  POST
  *   @access  public
  */
-export const login = asyncHandler(async (req, res) => {
-  const { email, password } = req.body;
-
+export const login = async (req, res) => {
   try {
+    const { email, password } = req.body;
+
     // Find user with password field
     const user = await User.findOne({ email }).select("+password");
 
     if (!user) {
-      res.status(401);
-      throw new Error("Invalid email or password");
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     // Check if user is active
     if (!user.isActive) {
-      res.status(403);
-      throw new Error("Account is deactivated. Please contact support");
+      return res.status(403).json({
+        message: "Account is deactivated. Please contact support",
+      });
     }
 
     // Verify password
     const isPasswordMatch = await bcrypt.compare(password, user.password);
 
     if (!isPasswordMatch) {
-      res.status(401);
-      throw new Error("Invalid email or password");
+      return res.status(401).json({ message: "Invalid email or password" });
     }
 
     generateToken(res, user._id, user.role === "admin");
@@ -111,7 +106,7 @@ export const login = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Logout User
@@ -119,17 +114,24 @@ export const login = asyncHandler(async (req, res) => {
  *   @method  POST
  *   @access  public
  */
-export const logout = asyncHandler(async (req, res) => {
-  res.cookie("jwt", "", {
-    httpOnly: true,
-    expires: new Date(0),
-  });
+export const logout = async (req, res) => {
+  try {
+    res.cookie("jwt", "", {
+      httpOnly: true,
+      expires: new Date(0),
+    });
 
-  res.status(200).json({
-    success: true,
-    message: "Logged out successfully",
-  });
-});
+    res.status(200).json({
+      success: true,
+      message: "Logged out successfully",
+    });
+  } catch (error) {
+    console.error("Error in logout controller:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error.", error: error.message });
+  }
+};
 
 /**
  *   @desc   Get Current User
@@ -137,14 +139,13 @@ export const logout = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (authenticated user)
  */
-export const getCurrentUser = asyncHandler(async (req, res) => {
-  const userId = req.user._id;
+export const getCurrentUser = async (req, res) => {
   try {
+    const userId = req.user._id;
     const user = await User.findById(userId).select("-password");
 
     if (!user) {
-      res.status(404);
-      throw new Error("User not found");
+      return res.status(404).json({ message: "User not found" });
     }
     res.status(200).json({ data: user });
   } catch (error) {
@@ -153,4 +154,4 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};

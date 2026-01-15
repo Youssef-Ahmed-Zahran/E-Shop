@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { User } from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 
@@ -8,12 +7,12 @@ import bcrypt from "bcryptjs";
  *   @method  Get
  *   @access  private (only admin)
  */
-export const getAllUsers = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
+export const getAllUsers = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const filter = {};
     if (req.query.role) {
       filter.role = req.query.role;
@@ -44,7 +43,7 @@ export const getAllUsers = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get User By Id
@@ -52,13 +51,12 @@ export const getAllUsers = asyncHandler(async (req, res) => {
  *   @method  Get
  *   @access  private (Admin or Own Profile)
  */
-export const getUserById = asyncHandler(async (req, res) => {
+export const getUserById = async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select("-password");
 
     if (!user) {
-      res.status(404);
-      throw new Error("User not found");
+      return res.status(404).json({ message: "User not found" });
     }
 
     res.status(200).json({ data: user });
@@ -68,7 +66,7 @@ export const getUserById = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Update User By Id
@@ -76,13 +74,12 @@ export const getUserById = asyncHandler(async (req, res) => {
  *   @method  PUT
  *   @access  private (User himself)
  */
-export const updateUser = asyncHandler(async (req, res) => {
+export const updateUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      res.status(404);
-      throw new Error("User not found");
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Don't allow password update through this route
@@ -110,7 +107,7 @@ export const updateUser = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Update password
@@ -118,20 +115,20 @@ export const updateUser = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (Own Profile)
  */
-export const updatePassword = asyncHandler(async (req, res) => {
-  const { currentPassword, newPassword } = req.body;
-
+export const updatePassword = async (req, res) => {
   try {
+    const { currentPassword, newPassword } = req.body;
+
     if (!currentPassword || !newPassword) {
-      res.status(400);
-      throw new Error("Please provide current and new password");
+      return res
+        .status(400)
+        .json({ message: "Please provide current and new password" });
     }
 
     const user = await User.findById(req.params.id).select("+password");
 
     if (!user) {
-      res.status(404);
-      throw new Error("User not found");
+      return res.status(404).json({ message: "User not found" });
     }
 
     // Verify current password
@@ -141,8 +138,7 @@ export const updatePassword = asyncHandler(async (req, res) => {
     );
 
     if (!isPasswordMatch) {
-      res.status(401);
-      throw new Error("Current password is incorrect");
+      return res.status(401).json({ message: "Current password is incorrect" });
     }
 
     // Hash new password
@@ -160,7 +156,7 @@ export const updatePassword = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Delete user By Id
@@ -168,13 +164,12 @@ export const updatePassword = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private (Admin)
  */
-export const deleteUser = asyncHandler(async (req, res) => {
+export const deleteUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
 
     if (!user) {
-      res.status(404);
-      throw new Error("User not found");
+      return res.status(404).json({ message: "User not found" });
     }
 
     await user.deleteOne();
@@ -183,12 +178,12 @@ export const deleteUser = asyncHandler(async (req, res) => {
       message: "User deleted successfully",
     });
   } catch (error) {
-    console.error("Error in updatePassword controller:", error);
+    console.error("Error in deleteUser controller:", error);
     res
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Toggle user active status
@@ -196,19 +191,27 @@ export const deleteUser = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (Admin)
  */
-export const toggleUserStatus = asyncHandler(async (req, res) => {
-  const user = await User.findById(req.params.id);
+export const toggleUserStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
 
-  if (!user) {
-    res.status(404);
-    throw new Error("User not found");
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    res.status(200).json({
+      message: `User ${
+        user.isActive ? "activated" : "deactivated"
+      } successfully`,
+      data: user,
+    });
+  } catch (error) {
+    console.error("Error in toggleUserStatus controller:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error.", error: error.message });
   }
-
-  user.isActive = !user.isActive;
-  await user.save();
-
-  res.status(200).json({
-    message: `User ${user.isActive ? "activated" : "deactivated"} successfully`,
-    data: user,
-  });
-});
+};

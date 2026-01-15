@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Cart } from "../models/cart.model.js";
 import { Product } from "../models/product.model.js";
 
@@ -8,7 +7,7 @@ import { Product } from "../models/product.model.js";
  *   @method  GET
  *   @access  private
  */
-export const getUserCart = asyncHandler(async (req, res) => {
+export const getUserCart = async (req, res) => {
   try {
     let cart = await Cart.findOne({ user: req.user._id }).populate(
       "items.product",
@@ -33,7 +32,7 @@ export const getUserCart = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Add item to cart
@@ -41,31 +40,31 @@ export const getUserCart = asyncHandler(async (req, res) => {
  *   @method  POST
  *   @access  private
  */
-export const addItemToCart = asyncHandler(async (req, res) => {
-  const { productId, quantity } = req.body;
-
+export const addItemToCart = async (req, res) => {
   try {
+    const { productId, quantity } = req.body;
+
     if (!productId || !quantity) {
-      res.status(400);
-      throw new Error("Product ID and quantity are required");
+      return res
+        .status(400)
+        .json({ message: "Product ID and quantity are required" });
     }
 
     // Check product exists and is active
     const product = await Product.findById(productId);
 
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     if (!product.isActive) {
-      res.status(400);
-      throw new Error("Product is not available");
+      return res.status(400).json({ message: "Product is not available" });
     }
 
     if (product.stock < quantity) {
-      res.status(400);
-      throw new Error(`Only ${product.stock} items available in stock`);
+      return res
+        .status(400)
+        .json({ message: `Only ${product.stock} items available in stock` });
     }
 
     let cart = await Cart.findOne({ user: req.user._id });
@@ -88,8 +87,9 @@ export const addItemToCart = asyncHandler(async (req, res) => {
       const newQuantity = cart.items[existingItemIndex].quantity + quantity;
 
       if (product.stock < newQuantity) {
-        res.status(400);
-        throw new Error(`Only ${product.stock} items available in stock`);
+        return res
+          .status(400)
+          .json({ message: `Only ${product.stock} items available in stock` });
       }
 
       cart.items[existingItemIndex].quantity = newQuantity;
@@ -127,7 +127,7 @@ export const addItemToCart = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Update cart item quantity
@@ -135,64 +135,68 @@ export const addItemToCart = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private
  */
-export const updateCartItem = asyncHandler(async (req, res) => {
-  const { quantity } = req.body;
-  const { productId } = req.params;
+export const updateCartItem = async (req, res) => {
+  try {
+    const { quantity } = req.body;
+    const { productId } = req.params;
 
-  if (!quantity || quantity < 1) {
-    res.status(400);
-    throw new Error("Valid quantity is required");
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({ message: "Valid quantity is required" });
+    }
+
+    const product = await Product.findById(productId);
+
+    if (!product) {
+      return res.status(404).json({ message: "Product not found" });
+    }
+
+    if (product.stock < quantity) {
+      return res
+        .status(400)
+        .json({ message: `Only ${product.stock} items available in stock` });
+    }
+
+    let cart = await Cart.findOne({ user: req.user._id });
+
+    if (!cart) {
+      return res.status(404).json({ message: "Cart not found" });
+    }
+
+    const itemIndex = cart.items.findIndex(
+      (item) => item.product.toString() === productId
+    );
+
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: "Item not found in cart" });
+    }
+
+    cart.items[itemIndex].quantity = quantity;
+
+    // Recalculate total
+    cart.totalPrice = cart.items.reduce(
+      (total, item) => total + item.price * item.quantity,
+      0
+    );
+
+    await cart.save();
+
+    cart = await Cart.findById(cart._id).populate(
+      "items.product",
+      "name price images stock"
+    );
+
+    res.status(200).json({
+      success: true,
+      message: "Cart updated",
+      data: cart,
+    });
+  } catch (error) {
+    console.error("Error in updateCartItem controller:", error);
+    res
+      .status(500)
+      .json({ message: "Internal server error.", error: error.message });
   }
-
-  const product = await Product.findById(productId);
-
-  if (!product) {
-    res.status(404);
-    throw new Error("Product not found");
-  }
-
-  if (product.stock < quantity) {
-    res.status(400);
-    throw new Error(`Only ${product.stock} items available in stock`);
-  }
-
-  let cart = await Cart.findOne({ user: req.user._id });
-
-  if (!cart) {
-    res.status(404);
-    throw new Error("Cart not found");
-  }
-
-  const itemIndex = cart.items.findIndex(
-    (item) => item.product.toString() === productId
-  );
-
-  if (itemIndex === -1) {
-    res.status(404);
-    throw new Error("Item not found in cart");
-  }
-
-  cart.items[itemIndex].quantity = quantity;
-
-  // Recalculate total
-  cart.totalPrice = cart.items.reduce(
-    (total, item) => total + item.price * item.quantity,
-    0
-  );
-
-  await cart.save();
-
-  cart = await Cart.findById(cart._id).populate(
-    "items.product",
-    "name price images stock"
-  );
-
-  res.status(200).json({
-    success: true,
-    message: "Cart updated",
-    data: cart,
-  });
-});
+};
 
 /**
  *   @desc   Remove item from cart
@@ -200,14 +204,13 @@ export const updateCartItem = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private
  */
-export const removeItemFromCart = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
+export const removeItemFromCart = async (req, res) => {
   try {
+    const { productId } = req.params;
     const cart = await Cart.findOne({ user: req.user._id });
 
     if (!cart) {
-      res.status(404);
-      throw new Error("Cart not found");
+      return res.status(404).json({ message: "Cart not found" });
     }
 
     cart.items = cart.items.filter(
@@ -238,7 +241,7 @@ export const removeItemFromCart = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Clear cart
@@ -246,13 +249,12 @@ export const removeItemFromCart = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private
  */
-export const clearCart = asyncHandler(async (req, res) => {
+export const clearCart = async (req, res) => {
   try {
     const cart = await Cart.findOne({ user: req.user._id });
 
     if (!cart) {
-      res.status(404);
-      throw new Error("Cart not found");
+      return res.status(404).json({ message: "Cart not found" });
     }
 
     cart.items = [];
@@ -271,4 +273,4 @@ export const clearCart = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};

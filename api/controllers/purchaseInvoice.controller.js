@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { PurchaseInvoice } from "../models/purchaseInvoice.model.js";
 import { Product } from "../models/product.model.js";
 import { Supplier } from "../models/supplier.model.js";
@@ -10,25 +9,23 @@ import mongoose from "mongoose";
  *   @method  POST
  *   @access  private (Admin)
  */
-export const createPurchaseInvoice = asyncHandler(async (req, res) => {
-  const { supplierId, items, shippingCost, taxAmount } = req.body;
-
-  if (!items || items.length === 0) {
-    res.status(400);
-    throw new Error("No items provided");
-  }
-
-  // Verify supplier exists
-  const supplier = await Supplier.findById(supplierId);
-  if (!supplier) {
-    res.status(404);
-    throw new Error("Supplier not found");
-  }
-
+export const createPurchaseInvoice = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+    const { supplierId, items, shippingCost, taxAmount } = req.body;
+
+    if (!items || items.length === 0) {
+      return res.status(400).json({ message: "No items provided" });
+    }
+
+    // Verify supplier exists
+    const supplier = await Supplier.findById(supplierId);
+    if (!supplier) {
+      return res.status(404).json({ message: "Supplier not found" });
+    }
+
     let subtotal = 0;
     const processedItems = [];
     const notFoundProducts = [];
@@ -134,11 +131,10 @@ export const createPurchaseInvoice = asyncHandler(async (req, res) => {
     res
       .status(500)
       .json({ message: error.message || "Internal server error." });
-    throw error;
   } finally {
     session.endSession();
   }
-});
+};
 
 /**
  *   @desc   Get all purchase invoices
@@ -146,12 +142,12 @@ export const createPurchaseInvoice = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (Admin)
  */
-export const getAllPurchaseInvoices = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
+export const getAllPurchaseInvoices = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
     const total = await PurchaseInvoice.countDocuments();
     const invoices = await PurchaseInvoice.find()
       .populate("supplier", "name email company")
@@ -177,7 +173,7 @@ export const getAllPurchaseInvoices = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get single purchase invoice
@@ -185,7 +181,7 @@ export const getAllPurchaseInvoices = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (Admin)
  */
-export const getPurchaseInvoiceById = asyncHandler(async (req, res) => {
+export const getPurchaseInvoiceById = async (req, res) => {
   try {
     const invoice = await PurchaseInvoice.findById(req.params.id)
       .populate("supplier", "name email phone company address")
@@ -193,8 +189,7 @@ export const getPurchaseInvoiceById = asyncHandler(async (req, res) => {
       .populate("items.product", "name price stock brand category");
 
     if (!invoice) {
-      res.status(404);
-      throw new Error("Purchase invoice not found");
+      return res.status(404).json({ message: "Purchase invoice not found" });
     }
 
     res.status(200).json({
@@ -207,7 +202,7 @@ export const getPurchaseInvoiceById = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get invoices by supplier
@@ -215,7 +210,7 @@ export const getPurchaseInvoiceById = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (Admin)
  */
-export const getInvoicesBySupplier = asyncHandler(async (req, res) => {
+export const getInvoicesBySupplier = async (req, res) => {
   try {
     const invoices = await PurchaseInvoice.find({
       supplier: req.params.supplierId,
@@ -236,7 +231,7 @@ export const getInvoicesBySupplier = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Delete purchase invoice (WARNING: Does not restore stock)
@@ -244,13 +239,12 @@ export const getInvoicesBySupplier = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private (Admin)
  */
-export const deletePurchaseInvoice = asyncHandler(async (req, res) => {
+export const deletePurchaseInvoice = async (req, res) => {
   try {
     const invoice = await PurchaseInvoice.findById(req.params.id);
 
     if (!invoice) {
-      res.status(404);
-      throw new Error("Purchase invoice not found");
+      return res.status(404).json({ message: "Purchase invoice not found" });
     }
 
     await invoice.deleteOne();
@@ -266,7 +260,7 @@ export const deletePurchaseInvoice = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Cancel purchase invoice and restore stock
@@ -274,18 +268,17 @@ export const deletePurchaseInvoice = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (Admin)
  */
-export const cancelPurchaseInvoice = asyncHandler(async (req, res) => {
-  const invoice = await PurchaseInvoice.findById(req.params.id);
-
-  if (!invoice) {
-    res.status(404);
-    throw new Error("Purchase invoice not found");
-  }
-
+export const cancelPurchaseInvoice = async (req, res) => {
   const session = await mongoose.startSession();
   session.startTransaction();
 
   try {
+    const invoice = await PurchaseInvoice.findById(req.params.id);
+
+    if (!invoice) {
+      return res.status(404).json({ message: "Purchase invoice not found" });
+    }
+
     // Restore product stock (subtract the received quantity)
     for (const item of invoice.items) {
       const product = await Product.findById(item.product).session(session);
@@ -311,12 +304,11 @@ export const cancelPurchaseInvoice = asyncHandler(async (req, res) => {
     console.error("Error in cancelPurchaseInvoice:", error);
     res
       .status(500)
-      .json({ message: "Internal server error.", error: error.message });
-    throw error;
+      .json({ message: error.message || "Internal server error." });
   } finally {
     session.endSession();
   }
-});
+};
 
 /**
  *   @desc   Validate products before creating invoice
@@ -324,15 +316,14 @@ export const cancelPurchaseInvoice = asyncHandler(async (req, res) => {
  *   @method  POST
  *   @access  private (Admin)
  */
-export const validateProductsForInvoice = asyncHandler(async (req, res) => {
-  const { supplierId, productIds } = req.body;
-
-  if (!productIds || productIds.length === 0) {
-    res.status(400);
-    throw new Error("Product IDs are required");
-  }
-
+export const validateProductsForInvoice = async (req, res) => {
   try {
+    const { supplierId, productIds } = req.body;
+
+    if (!productIds || productIds.length === 0) {
+      return res.status(400).json({ message: "Product IDs are required" });
+    }
+
     const validProducts = [];
     const invalidProducts = [];
 
@@ -384,4 +375,4 @@ export const validateProductsForInvoice = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};

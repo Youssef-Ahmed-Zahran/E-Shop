@@ -56,7 +56,7 @@ app.use("/api/v1/suppliers", supplierRoutes);
 app.use("/api/v1/purchaseInvoices", purchaseInvoiceRoutes);
 
 // PayPal
-app.get("/api/config/paypal", (req, res) => {
+app.get("/api/v1/config/paypal", (req, res) => {
   res.send({ clientId: process.env.PAYPAL_CLIENT_ID });
 });
 

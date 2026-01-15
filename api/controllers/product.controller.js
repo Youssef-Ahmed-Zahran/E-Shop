@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Product } from "../models/product.model.js";
 import {
   uploadMultipleToCloudinary,
@@ -11,12 +10,12 @@ import {
  *   @method  Get
  *   @access  public
  */
-export const getAllProducts = asyncHandler(async (req, res) => {
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 12;
-  const skip = (page - 1) * limit;
-
+export const getAllProducts = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 12;
+    const skip = (page - 1) * limit;
+
     const keyword = req.query.keyword
       ? {
           name: {
@@ -60,7 +59,7 @@ export const getAllProducts = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get single product
@@ -68,7 +67,7 @@ export const getAllProducts = asyncHandler(async (req, res) => {
  *   @method  Get
  *   @access  public
  */
-export const getProductById = asyncHandler(async (req, res) => {
+export const getProductById = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id)
       .populate("category", "name")
@@ -76,8 +75,7 @@ export const getProductById = asyncHandler(async (req, res) => {
       .populate("supplier", "name email company");
 
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     res.status(200).json({ data: product });
@@ -87,7 +85,7 @@ export const getProductById = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Add Product
@@ -95,7 +93,7 @@ export const getProductById = asyncHandler(async (req, res) => {
  *   @method  Post
  *   @access  private (Admin)
  */
-export const createProduct = asyncHandler(async (req, res) => {
+export const createProduct = async (req, res) => {
   try {
     const {
       name,
@@ -162,7 +160,7 @@ export const createProduct = asyncHandler(async (req, res) => {
       error: error.message,
     });
   }
-});
+};
 
 /**
  *   @desc   Update Product
@@ -170,13 +168,12 @@ export const createProduct = asyncHandler(async (req, res) => {
  *   @method  Put
  *   @access  private (Admin)
  */
-export const updateProduct = asyncHandler(async (req, res) => {
+export const updateProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     const updatedProduct = await Product.findByIdAndUpdate(
@@ -198,7 +195,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Toggle product featured status
@@ -206,7 +203,7 @@ export const updateProduct = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (Admin)
  */
-export const toggleFeaturedProduct = asyncHandler(async (req, res) => {
+export const toggleFeaturedProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
 
@@ -241,7 +238,7 @@ export const toggleFeaturedProduct = asyncHandler(async (req, res) => {
       error: error.message,
     });
   }
-});
+};
 
 /**
  *   @desc   Delete Product
@@ -249,7 +246,7 @@ export const toggleFeaturedProduct = asyncHandler(async (req, res) => {
  *   @method  Delete
  *   @access  private (Admin)
  */
-export const deleteProduct = asyncHandler(async (req, res) => {
+export const deleteProduct = async (req, res) => {
   try {
     const product = await Product.findById(req.params.id);
 
@@ -279,7 +276,7 @@ export const deleteProduct = asyncHandler(async (req, res) => {
       error: error.message,
     });
   }
-});
+};
 
 /**
  *   @desc   Update product stock
@@ -288,33 +285,33 @@ export const deleteProduct = asyncHandler(async (req, res) => {
  *   @access  private (Admin)
  */
 // *** For manual corrections, damages, returns, etc. ***
-export const updateProductStock = asyncHandler(async (req, res) => {
-  const { quantity, operation } = req.body;
-
+export const updateProductStock = async (req, res) => {
   try {
+    const { quantity, operation } = req.body;
+
     if (!quantity || !operation) {
-      res.status(400);
-      throw new Error("Quantity and operation are required");
+      return res
+        .status(400)
+        .json({ message: "Quantity and operation are required" });
     }
 
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     if (operation === "add") {
       product.stock += quantity;
     } else if (operation === "subtract") {
       if (product.stock < quantity) {
-        res.status(400);
-        throw new Error("Insufficient stock");
+        return res.status(400).json({ message: "Insufficient stock" });
       }
       product.stock -= quantity;
     } else {
-      res.status(400);
-      throw new Error("Invalid operation. Use 'add' or 'subtract'");
+      return res
+        .status(400)
+        .json({ message: "Invalid operation. Use 'add' or 'subtract'" });
     }
 
     await product.save();
@@ -330,7 +327,7 @@ export const updateProductStock = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get featured products
@@ -338,7 +335,7 @@ export const updateProductStock = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  public
  */
-export const getFeaturedProducts = asyncHandler(async (req, res) => {
+export const getFeaturedProducts = async (req, res) => {
   try {
     const products = await Product.find({ isFeatured: true, isActive: true })
       .populate("category", "name")
@@ -355,7 +352,7 @@ export const getFeaturedProducts = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get featured products
@@ -363,15 +360,14 @@ export const getFeaturedProducts = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  public
  */
-export const checkProductStock = asyncHandler(async (req, res) => {
-  const { quantity } = req.query;
-
+export const checkProductStock = async (req, res) => {
   try {
+    const { quantity } = req.query;
+
     const product = await Product.findById(req.params.id);
 
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     const requestedQty = parseInt(quantity) || 1;
@@ -396,4 +392,4 @@ export const checkProductStock = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};

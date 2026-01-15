@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Review } from "../models/review.model.js";
 import { Product } from "../models/product.model.js";
 
@@ -37,28 +36,29 @@ const updateProductRating = async (productId) => {
  *   @method  POST
  *   @access  private
  */
-export const createReview = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
-  const { rating, comment } = req.body;
-
+export const createReview = async (req, res) => {
   try {
+    const { productId } = req.params;
+    const { rating, comment } = req.body;
+
     if (!rating || !comment) {
-      res.status(400);
-      throw new Error("Please provide rating and comment");
+      return res
+        .status(400)
+        .json({ message: "Please provide rating and comment" });
     }
 
     // Validate rating value
     if (rating < 1 || rating > 5) {
-      res.status(400);
-      throw new Error("Rating must be between 1 and 5");
+      return res
+        .status(400)
+        .json({ message: "Rating must be between 1 and 5" });
     }
 
     // Check if product exists
     const productExists = await Product.findById(productId);
 
     if (!productExists) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     // Check if user already reviewed this product
@@ -68,8 +68,9 @@ export const createReview = asyncHandler(async (req, res) => {
     });
 
     if (alreadyReviewed) {
-      res.status(400);
-      throw new Error("You have already reviewed this product");
+      return res
+        .status(400)
+        .json({ message: "You have already reviewed this product" });
     }
 
     // Create review
@@ -98,7 +99,7 @@ export const createReview = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Get reviews for a product
@@ -106,20 +107,19 @@ export const createReview = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  public
  */
-export const getProductReviews = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = parseInt(req.query.limit) || 10;
-  const skip = (page - 1) * limit;
-
-  const filter = { product: productId };
-
+export const getProductReviews = async (req, res) => {
   try {
+    const { productId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const filter = { product: productId };
+
     // Verify product exists
     const product = await Product.findById(productId);
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res.status(404).json({ message: "Product not found" });
     }
 
     if (req.query.isApproved !== undefined) {
@@ -151,7 +151,7 @@ export const getProductReviews = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Get user's reviews
@@ -159,7 +159,7 @@ export const getProductReviews = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private
  */
-export const getUserReviews = asyncHandler(async (req, res) => {
+export const getUserReviews = async (req, res) => {
   try {
     const reviews = await Review.find({ user: req.user._id })
       .populate("product", "name images price")
@@ -176,7 +176,7 @@ export const getUserReviews = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Update review
@@ -184,19 +184,19 @@ export const getUserReviews = asyncHandler(async (req, res) => {
  *   @method  PUT
  *   @access  private
  */
-export const updateReview = asyncHandler(async (req, res) => {
+export const updateReview = async (req, res) => {
   try {
     const review = await Review.findById(req.params.id);
 
     if (!review) {
-      res.status(404);
-      throw new Error("Review not found");
+      return res.status(404).json({ message: "Review not found" });
     }
 
     // Check if user owns this review
     if (review.user.toString() !== req.user._id.toString()) {
-      res.status(403);
-      throw new Error("Not authorized to update this review");
+      return res
+        .status(403)
+        .json({ message: "Not authorized to update this review" });
     }
 
     const { rating, comment } = req.body;
@@ -204,16 +204,16 @@ export const updateReview = asyncHandler(async (req, res) => {
     // Validate rating if provided
     if (rating !== undefined) {
       if (rating < 1 || rating > 5) {
-        res.status(400);
-        throw new Error("Rating must be between 1 and 5");
+        return res
+          .status(400)
+          .json({ message: "Rating must be between 1 and 5" });
       }
       review.rating = rating;
     }
 
     if (comment !== undefined) {
       if (!comment.trim()) {
-        res.status(400);
-        throw new Error("Comment cannot be empty");
+        return res.status(400).json({ message: "Comment cannot be empty" });
       }
       review.comment = comment;
     }
@@ -238,7 +238,7 @@ export const updateReview = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Delete review
@@ -246,13 +246,12 @@ export const updateReview = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private
  */
-export const deleteReview = asyncHandler(async (req, res) => {
+export const deleteReview = async (req, res) => {
   try {
     const review = await Review.findById(req.params.id);
 
     if (!review) {
-      res.status(404);
-      throw new Error("Review not found");
+      return res.status(404).json({ message: "Review not found" });
     }
 
     // Check if user owns this review or is admin
@@ -260,8 +259,9 @@ export const deleteReview = asyncHandler(async (req, res) => {
       review.user.toString() !== req.user._id.toString() &&
       req.user.role !== "admin"
     ) {
-      res.status(403);
-      throw new Error("Not authorized to delete this review");
+      return res
+        .status(403)
+        .json({ message: "Not authorized to delete this review" });
     }
 
     const productId = review.product;
@@ -280,7 +280,7 @@ export const deleteReview = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Toggle review approval
@@ -288,13 +288,12 @@ export const deleteReview = asyncHandler(async (req, res) => {
  *   @method  PATCH
  *   @access  private (Admin)
  */
-export const toggleReviewApproval = asyncHandler(async (req, res) => {
+export const toggleReviewApproval = async (req, res) => {
   try {
     const review = await Review.findById(req.params.id);
 
     if (!review) {
-      res.status(404);
-      throw new Error("Review not found");
+      return res.status(404).json({ message: "Review not found" });
     }
 
     review.isApproved = !review.isApproved;
@@ -315,7 +314,7 @@ export const toggleReviewApproval = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Get all reviews (Admin)
@@ -323,7 +322,7 @@ export const toggleReviewApproval = asyncHandler(async (req, res) => {
  *   @method  GET
  *   @access  private (Admin)
  */
-export const getAllReviews = asyncHandler(async (req, res) => {
+export const getAllReviews = async (req, res) => {
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -380,7 +379,7 @@ export const getAllReviews = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};
 
 /**
  *   @desc   Bulk approve reviews
@@ -389,13 +388,14 @@ export const getAllReviews = asyncHandler(async (req, res) => {
  *   @access  private (Admin)
  */
 //allows admins to approve multiple reviews at once
-export const bulkApproveReviews = asyncHandler(async (req, res) => {
-  const { reviewIds } = req.body;
-
+export const bulkApproveReviews = async (req, res) => {
   try {
+    const { reviewIds } = req.body;
+
     if (!reviewIds || !Array.isArray(reviewIds) || reviewIds.length === 0) {
-      res.status(400);
-      throw new Error("Please provide an array of review IDs");
+      return res
+        .status(400)
+        .json({ message: "Please provide an array of review IDs" });
     }
 
     // Update all reviews to approved
@@ -427,4 +427,4 @@ export const bulkApproveReviews = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: error.message || "Internal server error." });
   }
-});
+};

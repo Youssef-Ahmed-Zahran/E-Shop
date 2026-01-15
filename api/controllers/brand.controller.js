@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Brand } from "../models/brand.model.js";
 
 /**
@@ -7,15 +6,14 @@ import { Brand } from "../models/brand.model.js";
  *   @method  Post
  *   @access  private (Admin)
  */
-export const createBrand = asyncHandler(async (req, res) => {
+export const createBrand = async (req, res) => {
   try {
     const { name } = req.body;
 
     const brandExists = await Brand.findOne({ name });
 
     if (brandExists) {
-      res.status(400);
-      throw new Error("Brand already exists");
+      return res.status(400).json({ message: "Brand already exists" });
     }
 
     const brand = await Brand.create({ name });
@@ -31,22 +29,62 @@ export const createBrand = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
- *   @desc   Get all brands
+ *   @desc   Get all brands with pagination
  *   @route  /api/v1/brands
  *   @method  Get
  *   @access  public
+ *   @query   page, limit, search, sortBy, sortOrder
  */
-export const getAllBrands = asyncHandler(async (req, res) => {
+export const getAllBrands = async (req, res) => {
   try {
-    const brands = await Brand.find().sort({ name: 1 });
+    // Extract query parameters with defaults
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const search = req.query.search || "";
+    const sortBy = req.query.sortBy || "name";
+    const sortOrder = req.query.sortOrder === "desc" ? -1 : 1;
+
+    // Calculate skip value
+    const skip = (page - 1) * limit;
+
+    // Build search filter
+    const searchFilter = search
+      ? { name: { $regex: search, $options: "i" } }
+      : {};
+
+    // Build sort object
+    const sortObject = { [sortBy]: sortOrder };
+
+    // Get total count for pagination info
+    const totalBrands = await Brand.countDocuments(searchFilter);
+
+    // Get paginated brands
+    const brands = await Brand.find(searchFilter)
+      .sort(sortObject)
+      .skip(skip)
+      .limit(limit);
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalBrands / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     res.status(200).json({
       success: true,
-      count: brands.length,
       data: brands,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalBrands,
+        limit,
+        hasNextPage,
+        hasPrevPage,
+        nextPage: hasNextPage ? page + 1 : null,
+        prevPage: hasPrevPage ? page - 1 : null,
+      },
     });
   } catch (error) {
     console.error("Error in getAllBrands controller:", error);
@@ -54,7 +92,7 @@ export const getAllBrands = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Get brand by ID
@@ -62,13 +100,12 @@ export const getAllBrands = asyncHandler(async (req, res) => {
  *   @method  Get
  *   @access  public
  */
-export const getBrandById = asyncHandler(async (req, res) => {
+export const getBrandById = async (req, res) => {
   try {
     const brand = await Brand.findById(req.params.id);
 
     if (!brand) {
-      res.status(404);
-      throw new Error("Brand not found");
+      return res.status(404).json({ message: "Brand not found" });
     }
 
     res.status(200).json({
@@ -81,7 +118,7 @@ export const getBrandById = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Update brand by ID
@@ -89,13 +126,12 @@ export const getBrandById = asyncHandler(async (req, res) => {
  *   @method  PUT
  *   @access  private (Admin)
  */
-export const updateBrand = asyncHandler(async (req, res) => {
+export const updateBrand = async (req, res) => {
   try {
     const brand = await Brand.findById(req.params.id);
 
     if (!brand) {
-      res.status(404);
-      throw new Error("Brand not found");
+      return res.status(404).json({ message: "Brand not found" });
     }
 
     const updatedBrand = await Brand.findByIdAndUpdate(
@@ -118,7 +154,7 @@ export const updateBrand = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Delete brand
@@ -126,13 +162,12 @@ export const updateBrand = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private (Admin)
  */
-export const deleteBrand = asyncHandler(async (req, res) => {
+export const deleteBrand = async (req, res) => {
   try {
     const brand = await Brand.findById(req.params.id);
 
     if (!brand) {
-      res.status(404);
-      throw new Error("Brand not found");
+      return res.status(404).json({ message: "Brand not found" });
     }
 
     await brand.deleteOne();
@@ -147,4 +182,4 @@ export const deleteBrand = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};

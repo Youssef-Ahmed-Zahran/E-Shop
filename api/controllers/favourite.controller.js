@@ -1,4 +1,3 @@
-import asyncHandler from "express-async-handler";
 import { Favourite } from "../models/favourite.model.js";
 import { Product } from "../models/product.model.js";
 
@@ -8,11 +7,11 @@ import { Product } from "../models/product.model.js";
  *   @method  GET
  *   @access  private
  */
-export const getUserFavourites = asyncHandler(async (req, res) => {
+export const getUserFavourites = async (req, res) => {
   try {
     let favourites = await Favourite.findOne({ user: req.user._id }).populate(
       "products",
-      "name price images rating numReviews brand category"
+      "name price images rating numReviews brand category stock"
     );
 
     if (!favourites) {
@@ -20,6 +19,12 @@ export const getUserFavourites = asyncHandler(async (req, res) => {
         user: req.user._id,
         products: [],
       });
+
+      // populate الجديد
+      favourites = await Favourite.findById(favourites._id).populate(
+        "products",
+        "name price images rating numReviews brand category stock"
+      );
     }
 
     res.status(200).json({
@@ -33,7 +38,7 @@ export const getUserFavourites = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Add product to favourites
@@ -41,16 +46,15 @@ export const getUserFavourites = asyncHandler(async (req, res) => {
  *   @method  POST
  *   @access  private
  */
-export const addToFavourites = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
-
+export const addToFavourites = async (req, res) => {
   try {
-    // Check if product exists
-    const product = await Product.findById(productId);
+    const { productId } = req.params;
 
+    const product = await Product.findById(productId);
     if (!product) {
-      res.status(404);
-      throw new Error("Product not found");
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not found" });
     }
 
     let favourites = await Favourite.findOne({ user: req.user._id });
@@ -61,26 +65,24 @@ export const addToFavourites = asyncHandler(async (req, res) => {
         products: [productId],
       });
     } else {
-      // Check if product already in favourites
       if (favourites.products.includes(productId)) {
-        res.status(400);
-        throw new Error("Product already in favourites");
+        return res
+          .status(400)
+          .json({ success: false, message: "Product already in favourites" });
       }
-
       favourites.products.push(productId);
       await favourites.save();
     }
 
-    // Populate and return
-    favourites = await Favourite.findById(favourites._id).populate(
+    const populated = await Favourite.findById(favourites._id).populate(
       "products",
-      "name price images rating numReviews brand category"
+      "name price images rating numReviews brand category stock"
     );
 
     res.status(200).json({
       success: true,
       message: "Product added to favourites",
-      data: favourites,
+      data: populated,
     });
   } catch (error) {
     console.error("Error in addToFavourites controller:", error);
@@ -88,7 +90,7 @@ export const addToFavourites = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Remove product from favourites
@@ -96,40 +98,38 @@ export const addToFavourites = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private
  */
-export const removeFromFavourites = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
-
+export const removeFromFavourites = async (req, res) => {
   try {
+    const { productId } = req.params;
+
     const favourites = await Favourite.findOne({ user: req.user._id });
 
     if (!favourites) {
-      res.status(404);
-      throw new Error("Favourites not found");
+      return res
+        .status(404)
+        .json({ success: false, message: "No favourites found for user" });
     }
 
-    // Check if product exists in favourites
     if (!favourites.products.includes(productId)) {
-      res.status(404);
-      throw new Error("Product not in favourites");
+      return res
+        .status(404)
+        .json({ success: false, message: "Product not in favourites" });
     }
 
     favourites.products = favourites.products.filter(
       (id) => id.toString() !== productId
     );
-
     await favourites.save();
 
-    const populatedFavourites = await Favourite.findById(
-      favourites._id
-    ).populate(
+    const populated = await Favourite.findById(favourites._id).populate(
       "products",
-      "name price images rating numReviews brand category"
+      "name price images rating numReviews brand category stock"
     );
 
     res.status(200).json({
       success: true,
       message: "Product removed from favourites",
-      data: populatedFavourites,
+      data: populated,
     });
   } catch (error) {
     console.error("Error in removeFromFavourites controller:", error);
@@ -137,7 +137,7 @@ export const removeFromFavourites = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Clear all favourites
@@ -145,13 +145,12 @@ export const removeFromFavourites = asyncHandler(async (req, res) => {
  *   @method  DELETE
  *   @access  private
  */
-export const clearFavourites = asyncHandler(async (req, res) => {
+export const clearFavourites = async (req, res) => {
   try {
     const favourites = await Favourite.findOne({ user: req.user._id });
 
     if (!favourites) {
-      res.status(404);
-      throw new Error("Favourites not found");
+      return res.status(404).json({ message: "Favourites not found" });
     }
 
     favourites.products = [];
@@ -168,7 +167,7 @@ export const clearFavourites = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
 
 /**
  *   @desc   Check if product is in favourites
@@ -177,12 +176,20 @@ export const clearFavourites = asyncHandler(async (req, res) => {
  *   @access  private
  */
 // ❤️ Highlight the heart icon
-// 🔘 Disable “Add to favourites” button
-// 🔁 Toggle between “Add” / “Remove”
+// 🔘 Disable "Add to favourites" button
+// 🔁 Toggle between "Add" / "Remove"
 // 🚫 Avoid calling addToFavourites unnecessarily
-export const checkFavourite = asyncHandler(async (req, res) => {
-  const { productId } = req.params;
+export const checkFavourite = async (req, res) => {
   try {
+    const { productId } = req.params;
+
+    // تحقق بسيط من صحة الـ productId (اختياري لكن مفيد)
+    if (!productId.match(/^[0-9a-fA-F]{24}$/)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid product ID" });
+    }
+
     const favourites = await Favourite.findOne({ user: req.user._id });
 
     const isFavourite = favourites
@@ -199,4 +206,4 @@ export const checkFavourite = asyncHandler(async (req, res) => {
       .status(500)
       .json({ message: "Internal server error.", error: error.message });
   }
-});
+};
