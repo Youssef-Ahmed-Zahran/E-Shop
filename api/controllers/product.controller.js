@@ -1,4 +1,5 @@
 import { Product } from "../models/product.model.js";
+import { Order } from "../models/order.model.js";
 import {
   uploadMultipleToCloudinary,
   deleteMultipleFromCloudinary,
@@ -257,12 +258,42 @@ export const deleteProduct = async (req, res) => {
       });
     }
 
-    // Delete images from Cloudinary using helper function
-    if (product.images && product.images.length > 0) {
+    // Check if product is already deleted
+    if (product.isDeleted) {
+      return res.status(400).json({
+        success: false,
+        message: "Product is already deleted",
+      });
+    }
+
+    // Check if product is in any active orders
+    const activeOrders = await Order.countDocuments({
+      "items.product": product._id,
+      orderStatus: { $in: ["pending", "processing", "shipped"] },
+    });
+
+    if (activeOrders > 0) {
+      return res.status(400).json({
+        success: false,
+        message: `Cannot delete product. It's currently part of ${activeOrders} active order(s). Products can only be deleted after all associated orders are delivered or cancelled.`,
+      });
+    }
+
+    // Optional: Delete images from Cloudinary only if no orders reference this product at all
+    const anyOrders = await Order.countDocuments({
+      "items.product": product._id,
+    });
+
+    if (anyOrders === 0 && product.images && product.images.length > 0) {
+      // Safe to delete images - no order history references this product
       await deleteMultipleFromCloudinary(product.images);
     }
 
-    await product.deleteOne();
+    // Soft delete
+    product.isDeleted = true;
+    product.isActive = false;
+    product.deletedAt = Date.now();
+    await product.save();
 
     res.status(200).json({
       success: true,
