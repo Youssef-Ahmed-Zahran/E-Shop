@@ -11,6 +11,9 @@ import AuthRoute from "./components/protected-route/AuthRoute";
 import PrivateRoute from "./components/protected-route/PrivateRoute";
 import AdminRoute from "./components/protected-route/AdminRoute";
 
+// Admin Pages
+import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
+
 function App() {
   return (
     <BrowserRouter>
@@ -30,7 +33,9 @@ function App() {
             <Route element={<PrivateRoute />}></Route>
 
             {/* Admin routes */}
-            <Route element={<AdminRoute />}></Route>
+            <Route element={<AdminRoute />}>
+              <Route path="/admin/dashboard" element={<AdminDashboard />} />
+            </Route>
 
             {/* 404 page */}
             <Route
