@@ -23,6 +23,9 @@ import Shop from "./modules/shop/pages/shop/Shop";
 // Cart module
 import Cart from "./modules/cart/pages/cart/Cart";
 
+// Favourites module
+import Favourite from "./modules/favourites/pages/favourite/Favourite";
+
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
@@ -57,6 +60,7 @@ function App() {
             {/* Protected routes - require authentication */}
             <Route element={<PrivateRoute />}>
               <Route path="/cart" element={<Cart />} />
+              <Route path="/favourites" element={<Favourite />} />
             </Route>
 
             {/* Admin routes */}
