@@ -11,6 +11,9 @@ import AuthRoute from "./components/protected-route/AuthRoute";
 import PrivateRoute from "./components/protected-route/PrivateRoute";
 import AdminRoute from "./components/protected-route/AdminRoute";
 
+// Product module
+import Product from "./modules/product/pages/product/Product";
+
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
@@ -32,6 +35,7 @@ function App() {
         <main className="flex-grow">
           <Routes>
             {/* Public routes */}
+            <Route path="/product/:id" element={<Product />} />
 
             {/* Auth routes - redirect to home if already logged in */}
             <Route element={<AuthRoute />}>
