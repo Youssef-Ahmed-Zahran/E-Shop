@@ -26,6 +26,12 @@ import Cart from "./modules/cart/pages/cart/Cart";
 // Favourites module
 import Favourite from "./modules/favourites/pages/favourite/Favourite";
 
+// Order module
+import Order from "./modules/order/pages/order/Order";
+
+// Single Order module
+import SingleOrder from "./modules/order/pages/single-order/SingleOrder";
+
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
@@ -61,6 +67,8 @@ function App() {
             <Route element={<PrivateRoute />}>
               <Route path="/cart" element={<Cart />} />
               <Route path="/favourites" element={<Favourite />} />
+              <Route path="/order" element={<Order />} />
+              <Route path="/order/:id" element={<SingleOrder />} />
             </Route>
 
             {/* Admin routes */}
