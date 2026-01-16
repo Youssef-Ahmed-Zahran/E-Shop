@@ -32,6 +32,11 @@ import Order from "./modules/order/pages/order/Order";
 // Single Order module
 import SingleOrder from "./modules/order/pages/single-order/SingleOrder";
 
+// Profile module
+import Profile from "./modules/profile/pages/profile/Profile";
+import MyOrders from "./modules/profile/components/my-orders/MyOrders";
+import MyReviews from "./modules/profile/components/my-reviews/MyReviews";
+
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
@@ -69,6 +74,9 @@ function App() {
               <Route path="/favourites" element={<Favourite />} />
               <Route path="/order" element={<Order />} />
               <Route path="/order/:id" element={<SingleOrder />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path="/profile/orders" element={<MyOrders />} />
+              <Route path="/profile/reviews" element={<MyReviews />} />
             </Route>
 
             {/* Admin routes */}
