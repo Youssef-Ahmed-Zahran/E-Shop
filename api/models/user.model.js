@@ -43,6 +43,15 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    loginAttempts: {
+      type: Number,
+      default: 0,
+    },
+
+    lockUntil: {
+      type: Date,
+    },
+
     isActive: {
       type: Boolean,
       default: true,
@@ -50,5 +59,10 @@ const userSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
+
+// Virtual for checking if account is locked
+userSchema.virtual("isLocked").get(function () {
+  return !!(this.lockUntil && this.lockUntil > Date.now());
+});
 
 export const User = mongoose.model("User", userSchema);
