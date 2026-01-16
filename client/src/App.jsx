@@ -15,6 +15,9 @@ import AdminRoute from "./components/protected-route/AdminRoute";
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
 import AdminCategories from "./modules/admin/categories/pages/categories/Categories";
+import AdminProducts from "./modules/admin/products/pages/products/Products";
+import AddProduct from "./modules/admin/products/components/add-product/AddProduct";
+import EditProduct from "./modules/admin/products/components/edit-product/EditProduct";
 
 function App() {
   return (
@@ -39,6 +42,12 @@ function App() {
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
               <Route path="/admin/brands" element={<AdminBrands />} />
               <Route path="/admin/categories" element={<AdminCategories />} />
+              <Route path="/admin/products" element={<AdminProducts />} />
+              <Route path="/admin/products/add" element={<AddProduct />} />
+              <Route
+                path="/admin/products/edit/:id"
+                element={<EditProduct />}
+              />
             </Route>
 
             {/* 404 page */}
