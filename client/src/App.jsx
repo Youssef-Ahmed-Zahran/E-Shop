@@ -18,6 +18,7 @@ import AdminCategories from "./modules/admin/categories/pages/categories/Categor
 import AdminProducts from "./modules/admin/products/pages/products/Products";
 import AddProduct from "./modules/admin/products/components/add-product/AddProduct";
 import EditProduct from "./modules/admin/products/components/edit-product/EditProduct";
+import AdminUsers from "./modules/admin/users/pages/users/Users";
 
 function App() {
   return (
@@ -48,6 +49,7 @@ function App() {
                 path="/admin/products/edit/:id"
                 element={<EditProduct />}
               />
+              <Route path="/admin/users" element={<AdminUsers />} />
             </Route>
 
             {/* 404 page */}
