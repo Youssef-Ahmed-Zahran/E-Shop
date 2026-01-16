@@ -20,6 +20,9 @@ import Product from "./modules/product/pages/product/Product";
 // Shop module
 import Shop from "./modules/shop/pages/shop/Shop";
 
+// Cart module
+import Cart from "./modules/cart/pages/cart/Cart";
+
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
@@ -52,7 +55,9 @@ function App() {
             </Route>
 
             {/* Protected routes - require authentication */}
-            <Route element={<PrivateRoute />}></Route>
+            <Route element={<PrivateRoute />}>
+              <Route path="/cart" element={<Cart />} />
+            </Route>
 
             {/* Admin routes */}
             <Route element={<AdminRoute />}>
