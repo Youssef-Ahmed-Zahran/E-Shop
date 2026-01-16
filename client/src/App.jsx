@@ -11,6 +11,9 @@ import AuthRoute from "./components/protected-route/AuthRoute";
 import PrivateRoute from "./components/protected-route/PrivateRoute";
 import AdminRoute from "./components/protected-route/AdminRoute";
 
+// Home module
+import Home from "./modules/home/pages/home/Home";
+
 // Product module
 import Product from "./modules/product/pages/product/Product";
 
@@ -38,6 +41,7 @@ function App() {
         <main className="flex-grow">
           <Routes>
             {/* Public routes */}
+            <Route path="/" element={<Home />} />
             <Route path="/product/:id" element={<Product />} />
             <Route path="/shop" element={<Shop />} />
 
