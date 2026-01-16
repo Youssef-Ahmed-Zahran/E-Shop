@@ -14,6 +14,9 @@ import AdminRoute from "./components/protected-route/AdminRoute";
 // Product module
 import Product from "./modules/product/pages/product/Product";
 
+// Shop module
+import Shop from "./modules/shop/pages/shop/Shop";
+
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
 import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
@@ -36,6 +39,7 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/product/:id" element={<Product />} />
+            <Route path="/shop" element={<Shop />} />
 
             {/* Auth routes - redirect to home if already logged in */}
             <Route element={<AuthRoute />}>
