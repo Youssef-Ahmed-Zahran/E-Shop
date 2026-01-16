@@ -13,6 +13,7 @@ import AdminRoute from "./components/protected-route/AdminRoute";
 
 // Admin Pages
 import AdminDashboard from "./modules/admin/dashboard/pages/dashboard/Dashboard";
+import AdminBrands from "./modules/admin/brands/pages/brands/Brands";
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
             {/* Admin routes */}
             <Route element={<AdminRoute />}>
               <Route path="/admin/dashboard" element={<AdminDashboard />} />
+              <Route path="/admin/brands" element={<AdminBrands />} />
             </Route>
 
             {/* 404 page */}
