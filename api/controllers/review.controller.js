@@ -161,14 +161,37 @@ export const getProductReviews = async (req, res) => {
  */
 export const getUserReviews = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination info
+    const totalReviews = await Review.countDocuments({ user: req.user._id });
+    
+    // Get paginated reviews
     const reviews = await Review.find({ user: req.user._id })
       .populate("product", "name images price")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .limit(limit)
+      .skip(skip);
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalReviews / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     res.status(200).json({
       success: true,
       count: reviews.length,
       data: reviews,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalReviews,
+        limit,
+        hasNextPage,
+        hasPrevPage,
+      },
     });
   } catch (error) {
     console.error("Error in getUserReviews:", error);

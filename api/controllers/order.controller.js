@@ -152,14 +152,38 @@ export const getOrderById = async (req, res) => {
  */
 export const getMyOrders = async (req, res) => {
   try {
+    // Extract pagination parameters from query
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Get total count for pagination metadata
+    const totalOrders = await Order.countDocuments({ user: req.user._id });
+
+    // Get paginated orders
     const orders = await Order.find({ user: req.user._id })
       .populate("items.product", "name price images")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    // Calculate pagination metadata
+    const totalPages = Math.ceil(totalOrders / limit);
+    const hasNextPage = page < totalPages;
+    const hasPrevPage = page > 1;
 
     res.status(200).json({
       success: true,
       count: orders.length,
       data: orders,
+      pagination: {
+        currentPage: page,
+        totalPages,
+        totalOrders,
+        limit,
+        hasNextPage,
+        hasPrevPage,
+      },
     });
   } catch (error) {
     console.error("Error in getMyOrders:", error);
@@ -397,11 +421,9 @@ export const cancelOrder = async (req, res) => {
 
     // Prevent cancellation if already shipped (optional - remove if you want to allow)
     if (order.orderStatus === "shipped") {
-      return res
-        .status(400)
-        .json({
-          message: "Cannot cancel shipped order. Please contact support.",
-        });
+      return res.status(400).json({
+        message: "Cannot cancel shipped order. Please contact support.",
+      });
     }
 
     // Restore product stock
