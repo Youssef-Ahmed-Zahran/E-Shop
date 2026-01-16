@@ -21,6 +21,7 @@ import EditProduct from "./modules/admin/products/components/edit-product/EditPr
 import AdminUsers from "./modules/admin/users/pages/users/Users";
 import AdminReviews from "./modules/admin/reviews/pages/reviews/Reviews";
 import AdminSuppliers from "./modules/admin/suppliers/pages/suppliers/Suppliers";
+import AdminPurchaseInvoices from "./modules/admin/purchase-invoices/pages/purchase-invoices/PurchaseInvoices";
 
 function App() {
   return (
@@ -54,6 +55,10 @@ function App() {
               <Route path="/admin/users" element={<AdminUsers />} />
               <Route path="/admin/reviews" element={<AdminReviews />} />
               <Route path="/admin/suppliers" element={<AdminSuppliers />} />
+              <Route
+                path="/admin/purchase-invoices"
+                element={<AdminPurchaseInvoices />}
+              />
             </Route>
 
             {/* 404 page */}
