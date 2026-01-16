@@ -1,9 +1,7 @@
+// admin/modules/supplier/slice/supplierSlice.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const SUPPLIERS_QUERY_KEY = ["suppliers"];
-export const SUPPLIER_QUERY_KEY = ["supplier"];
+import axiosInstance from "../../../../lib/axios";
+import { QUERY_KEYS } from "../../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -50,14 +48,14 @@ export const useCreateSupplier = () => {
   return useMutation({
     mutationFn: createSupplier,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SUPPLIERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SUPPLIERS });
     },
   });
 };
 
 export const useGetAllSuppliers = (filters = {}) => {
   return useQuery({
-    queryKey: [...SUPPLIERS_QUERY_KEY, filters],
+    queryKey: [...QUERY_KEYS.SUPPLIERS, filters],
     queryFn: () => getAllSuppliers(filters),
     staleTime: 3 * 60 * 1000,
   });
@@ -65,7 +63,7 @@ export const useGetAllSuppliers = (filters = {}) => {
 
 export const useGetSupplierById = (id) => {
   return useQuery({
-    queryKey: [...SUPPLIER_QUERY_KEY, id],
+    queryKey: [...QUERY_KEYS.SUPPLIER, id],
     queryFn: () => getSupplierById(id),
     enabled: !!id,
     staleTime: 3 * 60 * 1000,
@@ -78,9 +76,9 @@ export const useUpdateSupplier = () => {
   return useMutation({
     mutationFn: updateSupplier,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: SUPPLIERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SUPPLIERS });
       queryClient.invalidateQueries({
-        queryKey: [...SUPPLIER_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.SUPPLIER, variables.id],
       });
     },
   });
@@ -92,7 +90,7 @@ export const useDeleteSupplier = () => {
   return useMutation({
     mutationFn: deleteSupplier,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SUPPLIERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SUPPLIERS });
     },
   });
 };
@@ -103,7 +101,7 @@ export const useToggleSupplierStatus = () => {
   return useMutation({
     mutationFn: toggleSupplierStatus,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: SUPPLIERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SUPPLIERS });
     },
   });
 };

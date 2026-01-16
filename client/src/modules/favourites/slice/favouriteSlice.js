@@ -1,9 +1,7 @@
+// favourites/slice/favouriteSlice.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const FAVOURITES_QUERY_KEY = ["favourites"];
-export const CHECK_FAVOURITE_QUERY_KEY = ["checkFavourite"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -36,7 +34,7 @@ const clearFavourites = async () => {
 
 export const useGetUserFavourites = () => {
   return useQuery({
-    queryKey: FAVOURITES_QUERY_KEY,
+    queryKey: QUERY_KEYS.FAVOURITES,
     queryFn: getUserFavourites,
     staleTime: 2 * 60 * 1000,
   });
@@ -44,7 +42,7 @@ export const useGetUserFavourites = () => {
 
 export const useCheckFavourite = (productId) => {
   return useQuery({
-    queryKey: [...CHECK_FAVOURITE_QUERY_KEY, productId],
+    queryKey: [...QUERY_KEYS.CHECK_FAVOURITE, productId],
     queryFn: () => checkFavourite(productId),
     enabled: !!productId,
     staleTime: 2 * 60 * 1000,
@@ -57,9 +55,9 @@ export const useAddToFavourites = () => {
   return useMutation({
     mutationFn: addToFavourites,
     onSuccess: (data, productId) => {
-      queryClient.invalidateQueries({ queryKey: FAVOURITES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FAVOURITES });
       queryClient.invalidateQueries({
-        queryKey: [...CHECK_FAVOURITE_QUERY_KEY, productId],
+        queryKey: [...QUERY_KEYS.CHECK_FAVOURITE, productId],
       });
     },
   });
@@ -71,9 +69,9 @@ export const useRemoveFromFavourites = () => {
   return useMutation({
     mutationFn: removeFromFavourites,
     onSuccess: (data, productId) => {
-      queryClient.invalidateQueries({ queryKey: FAVOURITES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FAVOURITES });
       queryClient.invalidateQueries({
-        queryKey: [...CHECK_FAVOURITE_QUERY_KEY, productId],
+        queryKey: [...QUERY_KEYS.CHECK_FAVOURITE, productId],
       });
     },
   });
@@ -85,8 +83,8 @@ export const useClearFavourites = () => {
   return useMutation({
     mutationFn: clearFavourites,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: FAVOURITES_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: CHECK_FAVOURITE_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FAVOURITES });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CHECK_FAVOURITE });
     },
   });
 };

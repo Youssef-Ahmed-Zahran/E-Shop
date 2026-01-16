@@ -1,4 +1,4 @@
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   ShoppingCart,
   Heart,
@@ -6,115 +6,108 @@ import {
   LogOut,
   Menu,
   X,
-  Search,
+  Home,
+  Store,
+  Settings,
   Package,
 } from "lucide-react";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import axios from "../lib/axios";
 import toast from "react-hot-toast";
+import {
+  useCurrentUser,
+  useLogoutUser,
+} from "../../modules/auth/slice/authSlice";
+import { useGetUserCart } from "../../modules/cart/slice/cartSlice";
+import { useGetUserFavourites } from "../../modules/favourites/slice/favouriteSlice";
 
-const Navbar = () => {
+function Navbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const location = useLocation();
 
-  // Get current user
-  const { data: userData } = useQuery({
-    queryKey: ["currentUser"],
-    queryFn: async () => {
-      const res = await axios.get("/auth/me");
-      return res.data.data;
-    },
-    retry: false,
-  });
+  const { data: userData } = useCurrentUser();
+  const user = userData?.data;
 
-  // Get cart count
-  const { data: cartData } = useQuery({
-    queryKey: ["cart"],
-    queryFn: async () => {
-      const res = await axios.get("/carts");
-      return res.data.data;
-    },
-    enabled: !!userData,
-  });
+  const { data: cartData } = useGetUserCart();
+  const cartItemsCount =
+    cartData?.data?.items?.reduce((total, item) => {
+      return total + (item.quantity || 0);
+    }, 0) || 0;
+    
+  const { data: favouritesData } = useGetUserFavourites();
+  const favouritesCount = favouritesData?.data?.products?.length || 0;
 
-  // Get favourites count
-  const { data: favouritesData } = useQuery({
-    queryKey: ["favourites"],
-    queryFn: async () => {
-      const res = await axios.get("/favourites");
-      return res.data.data;
-    },
-    enabled: !!userData,
-  });
+  const logoutMutation = useLogoutUser();
 
   const handleLogout = async () => {
     try {
-      await axios.post("/auth/logout");
-      queryClient.clear();
+      await logoutMutation.mutateAsync();
       toast.success("Logged out successfully");
       navigate("/login");
+      setIsProfileOpen(false);
     } catch (error) {
-      toast.error("Failed to logout" + error.message);
+      toast.error("Failed to logout" + error.response?.data?.message);
     }
   };
 
-  const cartItemsCount = cartData?.items?.length || 0;
-  const favouritesCount = favouritesData?.products?.length || 0;
+  const isActiveLink = (path) => {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+    return location.pathname.startsWith(path);
+  };
 
   return (
-    <nav className="bg-white shadow-md sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+    <nav className="bg-white shadow-sm sticky top-0 z-50 border-b">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6">
+        <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center space-x-2">
-            <Package className="h-8 w-8 text-blue-600" />
-            <span className="text-2xl font-bold text-gray-900">E-Shop</span>
+          <Link to="/" className="flex items-center space-x-3 group">
+            <div className="bg-blue-600 p-2 rounded-lg group-hover:bg-blue-700 transition">
+              <Package className="h-5 w-5 text-white" />
+            </div>
+            <span className="text-xl font-bold text-gray-900">E-Shop</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-8">
+          <div className="hidden md:flex items-center space-x-1">
             <Link
               to="/"
-              className="text-gray-700 hover:text-blue-600 transition"
+              className={`px-4 py-2 rounded-lg font-medium transition ${
+                isActiveLink("/")
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+              }`}
             >
+              <Home className="inline-block h-4 w-4 mr-2" />
               Home
             </Link>
             <Link
               to="/shop"
-              className="text-gray-700 hover:text-blue-600 transition"
+              className={`px-4 py-2 rounded-lg font-medium transition ${
+                isActiveLink("/shop")
+                  ? "bg-blue-50 text-blue-600"
+                  : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+              }`}
             >
+              <Store className="inline-block h-4 w-4 mr-2" />
               Shop
             </Link>
-            {userData?.role === "admin" && (
-              <Link
-                to="/admin"
-                className="text-gray-700 hover:text-blue-600 transition"
-              >
-                Admin
-              </Link>
-            )}
           </div>
 
-          {/* Right side icons */}
+          {/* Desktop Icons */}
           <div className="hidden md:flex items-center space-x-4">
-            {/* Search */}
-            <button className="p-2 text-gray-700 hover:text-blue-600 transition">
-              <Search className="h-5 w-5" />
-            </button>
-
-            {userData ? (
+            {user ? (
               <>
                 {/* Favourites */}
                 <Link
                   to="/favourites"
-                  className="p-2 text-gray-700 hover:text-blue-600 transition relative"
+                  className="p-2 text-gray-600 hover:text-pink-600 relative transition hover:bg-pink-50 rounded-lg"
                 >
                   <Heart className="h-5 w-5" />
                   {favouritesCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-pink-500 text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
                       {favouritesCount}
                     </span>
                   )}
@@ -123,11 +116,11 @@ const Navbar = () => {
                 {/* Cart */}
                 <Link
                   to="/cart"
-                  className="p-2 text-gray-700 hover:text-blue-600 transition relative"
+                  className="p-2 text-gray-600 hover:text-blue-600 relative transition hover:bg-blue-50 rounded-lg"
                 >
                   <ShoppingCart className="h-5 w-5" />
                   {cartItemsCount > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-blue-600 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 bg-blue-500 text-white text-xs font-medium rounded-full h-5 w-5 flex items-center justify-center shadow-sm">
                       {cartItemsCount}
                     </span>
                   )}
@@ -137,59 +130,69 @@ const Navbar = () => {
                 <div className="relative">
                   <button
                     onClick={() => setIsProfileOpen(!isProfileOpen)}
-                    className="p-2 text-gray-700 hover:text-blue-600 transition"
+                    className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                   >
                     <User className="h-5 w-5" />
                   </button>
 
                   {isProfileOpen && (
-                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
-                      <div className="px-4 py-2 border-b">
-                        <p className="text-sm font-semibold text-gray-900">
-                          {userData.name}
+                    <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-50">
+                      {/* Profile Header */}
+                      <div className="px-4 py-3 border-b border-gray-100">
+                        <p className="font-semibold text-gray-900">
+                          {user.name}
                         </p>
-                        <p className="text-xs text-gray-500">
-                          {userData.email}
-                        </p>
+                        <p className="text-sm text-gray-500">{user.email}</p>
+                        {user.role === "admin" && (
+                          <span className="inline-block mt-1 px-2 py-0.5 text-xs font-medium bg-blue-600 text-white rounded-full">
+                            Admin
+                          </span>
+                        )}
                       </div>
-                      <Link
-                        to="/profile"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        My Profile
-                      </Link>
-                      <Link
-                        to="/orders"
-                        className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                        onClick={() => setIsProfileOpen(false)}
-                      >
-                        My Orders
-                      </Link>
-                      <button
-                        onClick={handleLogout}
-                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 flex items-center space-x-2"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        <span>Logout</span>
-                      </button>
+
+                      {/* Menu Items */}
+                      <div className="py-1">
+                        <Link
+                          to="/profile"
+                          className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition"
+                          onClick={() => setIsProfileOpen(false)}
+                        >
+                          Profile
+                        </Link>
+                        {user.role === "admin" && (
+                          <Link
+                            to="/admin/dashboard"
+                            className="block px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition"
+                            onClick={() => setIsProfileOpen(false)}
+                          >
+                            Admin Panel
+                          </Link>
+                        )}
+                        <div className="border-t border-gray-100 my-1"></div>
+                        <button
+                          onClick={handleLogout}
+                          className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition"
+                        >
+                          Logout
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>
               </>
             ) : (
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-4">
                 <Link
                   to="/login"
-                  className="px-4 py-2 text-gray-700 hover:text-blue-600 transition"
+                  className="px-4 py-2 text-gray-700 hover:text-blue-600 transition font-medium"
                 >
-                  Login
+                  Sign in
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition font-medium shadow-sm"
                 >
-                  Sign Up
+                  Sign up
                 </Link>
               </div>
             )}
@@ -198,7 +201,7 @@ const Navbar = () => {
           {/* Mobile menu button */}
           <button
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden p-2 text-gray-700"
+            className="md:hidden p-2 text-gray-600 hover:text-blue-600 transition"
           >
             {isMenuOpen ? (
               <X className="h-6 w-6" />
@@ -210,61 +213,94 @@ const Navbar = () => {
 
         {/* Mobile Menu */}
         {isMenuOpen && (
-          <div className="md:hidden py-4 border-t">
-            <div className="flex flex-col space-y-4">
+          <div className="md:hidden border-t border-gray-100 py-3 bg-white">
+            <div className="space-y-1">
               <Link
                 to="/"
-                className="text-gray-700 hover:text-blue-600 transition"
+                className={`flex items-center px-4 py-3 rounded-lg mx-2 transition ${
+                  isActiveLink("/")
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                }`}
                 onClick={() => setIsMenuOpen(false)}
               >
+                <Home className="h-5 w-5 mr-3" />
                 Home
               </Link>
               <Link
                 to="/shop"
-                className="text-gray-700 hover:text-blue-600 transition"
+                className={`flex items-center px-4 py-3 rounded-lg mx-2 transition ${
+                  isActiveLink("/shop")
+                    ? "bg-blue-50 text-blue-600"
+                    : "text-gray-700 hover:text-blue-600 hover:bg-blue-50"
+                }`}
                 onClick={() => setIsMenuOpen(false)}
               >
+                <Store className="h-5 w-5 mr-3" />
                 Shop
               </Link>
 
-              {userData ? (
+              {user && (
                 <>
+                  {/* User Info */}
+                  <div className="px-4 py-3 mx-2 bg-blue-50 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className="w-10 h-10 bg-blue-600 text-white rounded-full flex items-center justify-center">
+                        <User className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{user.name}</p>
+                        <p className="text-sm text-gray-600">{user.email}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Mobile Menu Items */}
                   <Link
                     to="/favourites"
-                    className="text-gray-700 hover:text-blue-600 transition flex items-center space-x-2"
+                    className="flex items-center justify-between px-4 py-3 mx-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <Heart className="h-5 w-5" />
-                    <span>Favourites ({favouritesCount})</span>
+                    <div className="flex items-center">
+                      <Heart className="h-5 w-5 mr-3" />
+                      Favourites
+                    </div>
+                    {favouritesCount > 0 && (
+                      <span className="bg-pink-100 text-pink-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {favouritesCount}
+                      </span>
+                    )}
                   </Link>
                   <Link
                     to="/cart"
-                    className="text-gray-700 hover:text-blue-600 transition flex items-center space-x-2"
+                    className="flex items-center justify-between px-4 py-3 mx-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    <ShoppingCart className="h-5 w-5" />
-                    <span>Cart ({cartItemsCount})</span>
+                    <div className="flex items-center">
+                      <ShoppingCart className="h-5 w-5 mr-3" />
+                      Cart
+                    </div>
+                    {cartItemsCount > 0 && (
+                      <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+                        {cartItemsCount}
+                      </span>
+                    )}
                   </Link>
                   <Link
                     to="/profile"
-                    className="text-gray-700 hover:text-blue-600 transition"
+                    className="flex items-center px-4 py-3 mx-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                     onClick={() => setIsMenuOpen(false)}
                   >
+                    <User className="h-5 w-5 mr-3" />
                     Profile
                   </Link>
-                  <Link
-                    to="/orders"
-                    className="text-gray-700 hover:text-blue-600 transition"
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    My Orders
-                  </Link>
-                  {userData.role === "admin" && (
+                  {user.role === "admin" && (
                     <Link
-                      to="/admin"
-                      className="text-gray-700 hover:text-blue-600 transition"
+                      to="/admin/dashboard"
+                      className="flex items-center px-4 py-3 mx-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                       onClick={() => setIsMenuOpen(false)}
                     >
+                      <Settings className="h-5 w-5 mr-3" />
                       Admin Panel
                     </Link>
                   )}
@@ -273,26 +309,30 @@ const Navbar = () => {
                       handleLogout();
                       setIsMenuOpen(false);
                     }}
-                    className="text-left text-red-600 hover:text-red-700 transition"
+                    className="flex items-center w-full px-4 py-3 mx-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition"
                   >
+                    <LogOut className="h-5 w-5 mr-3" />
                     Logout
                   </button>
                 </>
-              ) : (
+              )}
+
+              {!user && (
                 <>
+                  <div className="border-t border-gray-100 my-2"></div>
                   <Link
                     to="/login"
-                    className="text-gray-700 hover:text-blue-600 transition"
+                    className="flex items-center px-4 py-3 mx-2 text-gray-700 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Login
+                    Sign in
                   </Link>
                   <Link
                     to="/register"
-                    className="text-gray-700 hover:text-blue-600 transition"
+                    className="flex items-center justify-center px-4 py-3 mx-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                     onClick={() => setIsMenuOpen(false)}
                   >
-                    Sign Up
+                    Create account
                   </Link>
                 </>
               )}
@@ -302,6 +342,6 @@ const Navbar = () => {
       </div>
     </nav>
   );
-};
+}
 
 export default Navbar;

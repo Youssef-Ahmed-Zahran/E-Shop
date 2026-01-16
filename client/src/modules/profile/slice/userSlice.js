@@ -1,9 +1,7 @@
+// user/slice/userSlice.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const USERS_QUERY_KEY = ["users"];
-export const USER_QUERY_KEY = ["user"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -47,7 +45,7 @@ const toggleUserStatus = async (id) => {
 
 export const useGetAllUsers = (filters = {}) => {
   return useQuery({
-    queryKey: [...USERS_QUERY_KEY, filters],
+    queryKey: [...QUERY_KEYS.USERS, filters],
     queryFn: () => getAllUsers(filters),
     staleTime: 2 * 60 * 1000,
   });
@@ -55,7 +53,7 @@ export const useGetAllUsers = (filters = {}) => {
 
 export const useGetUserById = (id) => {
   return useQuery({
-    queryKey: [...USER_QUERY_KEY, id],
+    queryKey: [...QUERY_KEYS.USER, id],
     queryFn: () => getUserById(id),
     enabled: !!id,
     staleTime: 2 * 60 * 1000,
@@ -68,9 +66,9 @@ export const useUpdateUser = () => {
   return useMutation({
     mutationFn: updateUser,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS });
       queryClient.invalidateQueries({
-        queryKey: [...USER_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.USER, variables.id],
       });
     },
   });
@@ -88,7 +86,7 @@ export const useDeleteUser = () => {
   return useMutation({
     mutationFn: deleteUser,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS });
     },
   });
 };
@@ -99,7 +97,7 @@ export const useToggleUserStatus = () => {
   return useMutation({
     mutationFn: toggleUserStatus,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: USERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.USERS });
     },
   });
 };

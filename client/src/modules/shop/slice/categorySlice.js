@@ -1,14 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const CATEGORIES_QUERY_KEY = ["categories"];
-export const CATEGORY_QUERY_KEY = ["category"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
-const getAllCategories = async () => {
-  const response = await axiosInstance.get("/categories");
+const getAllCategories = async ({ page = 1, limit = 10, search = "" }) => {
+  const params = new URLSearchParams();
+  params.append("page", page);
+  params.append("limit", limit);
+  if (search) params.append("search", search);
+
+  const response = await axiosInstance.get(`/categories?${params.toString()}`);
   return response.data;
 };
 
@@ -34,17 +36,22 @@ const deleteCategory = async (id) => {
 
 // *********************************** ((React-Query Hooks)) **************************************** //
 
-export const useGetAllCategories = () => {
+export const useGetAllCategories = ({
+  page = 1,
+  limit = 10,
+  search = "",
+} = {}) => {
   return useQuery({
-    queryKey: CATEGORIES_QUERY_KEY,
-    queryFn: getAllCategories,
+    queryKey: [...QUERY_KEYS.CATEGORIES, { page, limit, search }],
+    queryFn: () => getAllCategories({ page, limit, search }),
     staleTime: 10 * 60 * 1000,
+    keepPreviousData: true, // Keep previous data while fetching new page
   });
 };
 
 export const useGetCategoryById = (id) => {
   return useQuery({
-    queryKey: [...CATEGORY_QUERY_KEY, id],
+    queryKey: [...QUERY_KEYS.CATEGORY, id],
     queryFn: () => getCategoryById(id),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
@@ -57,7 +64,7 @@ export const useCreateCategory = () => {
   return useMutation({
     mutationFn: createCategory,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CATEGORIES });
     },
   });
 };
@@ -68,9 +75,9 @@ export const useUpdateCategory = () => {
   return useMutation({
     mutationFn: updateCategory,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CATEGORIES });
       queryClient.invalidateQueries({
-        queryKey: [...CATEGORY_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.CATEGORY, variables.id],
       });
     },
   });
@@ -82,7 +89,7 @@ export const useDeleteCategory = () => {
   return useMutation({
     mutationFn: deleteCategory,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CATEGORIES_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CATEGORIES });
     },
   });
 };

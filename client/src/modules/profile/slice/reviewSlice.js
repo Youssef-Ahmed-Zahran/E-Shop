@@ -1,10 +1,7 @@
+// profile/slice/reviewSlice.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const PRODUCT_REVIEWS_QUERY_KEY = ["productReviews"];
-export const MY_REVIEWS_QUERY_KEY = ["myReviews"];
-export const ALL_REVIEWS_QUERY_KEY = ["allReviews"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -33,12 +30,17 @@ const getProductReviews = async ({
   return response.data;
 };
 
-const getUserReviews = async () => {
-  const response = await axiosInstance.get("/reviews/my-reviews");
+const getUserReviews = async ({ page = 1, limit = 10 } = {}) => {
+  const params = new URLSearchParams();
+  if (page) params.append("page", page);
+  if (limit) params.append("limit", limit);
+
+  const response = await axiosInstance.get(
+    `/reviews/my-reviews?${params.toString()}`
+  );
   return response.data;
 };
 
-// New: Get all reviews for admin dashboard
 const getAllReviews = async ({
   page = 1,
   limit = 10,
@@ -89,35 +91,42 @@ export const useCreateReview = () => {
   return useMutation({
     mutationFn: createReview,
     onSuccess: (data, variables) => {
+      // Invalidate review queries
       queryClient.invalidateQueries({
-        queryKey: [...PRODUCT_REVIEWS_QUERY_KEY, variables.productId],
+        queryKey: [...QUERY_KEYS.PRODUCT_REVIEWS, variables.productId],
       });
-      queryClient.invalidateQueries({ queryKey: MY_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
+
+      queryClient.invalidateQueries({
+        queryKey: [...QUERY_KEYS.PRODUCT, variables.productId],
+      });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
 
 export const useGetProductReviews = (productId, filters = {}) => {
   return useQuery({
-    queryKey: [...PRODUCT_REVIEWS_QUERY_KEY, productId, filters],
+    queryKey: [...QUERY_KEYS.PRODUCT_REVIEWS, productId, filters],
     queryFn: () => getProductReviews({ productId, ...filters }),
     enabled: !!productId,
     staleTime: 2 * 60 * 1000,
   });
 };
 
-export const useGetUserReviews = () => {
+export const useGetUserReviews = (filters = {}) => {
   return useQuery({
-    queryKey: MY_REVIEWS_QUERY_KEY,
-    queryFn: getUserReviews,
+    queryKey: [...QUERY_KEYS.MY_REVIEWS, filters],
+    queryFn: () => getUserReviews(filters),
     staleTime: 2 * 60 * 1000,
   });
 };
 
 export const useGetAllReviews = (filters = {}) => {
   return useQuery({
-    queryKey: [...ALL_REVIEWS_QUERY_KEY, filters],
+    queryKey: [...QUERY_KEYS.ALL_REVIEWS, filters],
     queryFn: () => getAllReviews(filters),
     staleTime: 2 * 60 * 1000,
   });
@@ -128,10 +137,20 @@ export const useUpdateReview = () => {
 
   return useMutation({
     mutationFn: updateReview,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: MY_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
+    onSuccess: (data) => {
+      // Invalidate review queries
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
+
+      const productId = data?.data?.product;
+      if (productId) {
+        queryClient.invalidateQueries({
+          queryKey: [...QUERY_KEYS.PRODUCT, productId],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -141,10 +160,20 @@ export const useDeleteReview = () => {
 
   return useMutation({
     mutationFn: deleteReview,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: MY_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
+    onSuccess: (data) => {
+      // Invalidate review queries
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
+
+      const productId = data?.data?.product;
+      if (productId) {
+        queryClient.invalidateQueries({
+          queryKey: [...QUERY_KEYS.PRODUCT, productId],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -154,9 +183,19 @@ export const useToggleReviewApproval = () => {
 
   return useMutation({
     mutationFn: toggleReviewApproval,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
+    onSuccess: (data) => {
+      // Invalidate review queries
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
+
+      const productId = data?.data?.product;
+      if (productId) {
+        queryClient.invalidateQueries({
+          queryKey: [...QUERY_KEYS.PRODUCT, productId],
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -167,9 +206,10 @@ export const useBulkApproveReviews = () => {
   return useMutation({
     mutationFn: bulkApproveReviews,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCT_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ALL_REVIEWS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ["products"] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };

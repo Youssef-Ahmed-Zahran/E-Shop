@@ -1,8 +1,7 @@
+// auth/slice/authSlice.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../../../lib/axios.js";
-
-// Query Keys
-export const AUTHUSER_QUERY_KEY = ["authUser"];
+import axiosInstance from "../../../lib/axios.js";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -30,10 +29,10 @@ const logoutUser = async () => {
 
 export const useCurrentUser = () => {
   return useQuery({
-    queryKey: AUTHUSER_QUERY_KEY,
+    queryKey: QUERY_KEYS.AUTH_USER,
     queryFn: getCurrentUser,
-    retry: false, // Don't retry if request fails
-    staleTime: 5 * 60 * 1000, // Data stays fresh for 5 minutes
+    retry: false,
+    staleTime: 5 * 60 * 1000,
   });
 };
 
@@ -43,8 +42,8 @@ export const useRegisterUser = () => {
   return useMutation({
     mutationFn: registerUser,
     onSuccess: (data) => {
-      queryClient.setQueryData(AUTHUSER_QUERY_KEY, data);
-      queryClient.invalidateQueries({ queryKey: AUTHUSER_QUERY_KEY });
+      queryClient.setQueryData(QUERY_KEYS.AUTH_USER, data);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.AUTH_USER });
     },
   });
 };
@@ -55,8 +54,8 @@ export const useLoginUser = () => {
   return useMutation({
     mutationFn: loginUser,
     onSuccess: (data) => {
-      queryClient.setQueryData(AUTHUSER_QUERY_KEY, data);
-      queryClient.invalidateQueries({ queryKey: AUTHUSER_QUERY_KEY });
+      queryClient.setQueryData(QUERY_KEYS.AUTH_USER, data);
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.AUTH_USER });
     },
   });
 };
@@ -67,7 +66,7 @@ export const useLogoutUser = () => {
   return useMutation({
     mutationFn: logoutUser,
     onSuccess: () => {
-      queryClient.setQueryData(AUTHUSER_QUERY_KEY, null);
+      queryClient.setQueryData(QUERY_KEYS.AUTH_USER, null);
       queryClient.clear();
     },
   });

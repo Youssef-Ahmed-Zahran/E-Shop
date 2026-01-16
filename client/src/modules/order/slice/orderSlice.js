@@ -1,10 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const ORDERS_QUERY_KEY = ["orders"];
-export const ORDER_QUERY_KEY = ["order"];
-export const MY_ORDERS_QUERY_KEY = ["myOrders"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -18,8 +14,14 @@ const getOrderById = async (id) => {
   return response.data;
 };
 
-const getMyOrders = async () => {
-  const response = await axiosInstance.get("/orders/myorders");
+const getMyOrders = async ({ page = 1, limit = 10 }) => {
+  const params = new URLSearchParams();
+  params.append("page", page);
+  params.append("limit", limit);
+
+  const response = await axiosInstance.get(
+    `/orders/myorders?${params.toString()}`
+  );
   return response.data;
 };
 
@@ -53,6 +55,11 @@ const cancelOrder = async (id) => {
   return response.data;
 };
 
+const getPayPalClientId = async () => {
+  const response = await axiosInstance.get("/config/paypal");
+  return response.data;
+};
+
 // *********************************** ((React-Query Hooks)) **************************************** //
 
 export const useCreateOrder = () => {
@@ -61,32 +68,39 @@ export const useCreateOrder = () => {
   return useMutation({
     mutationFn: createOrder,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: MY_ORDERS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_ORDERS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ORDERS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CART });
+
+      // Invalidate products and refresh product stock
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_STOCK });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
 
 export const useGetOrderById = (id) => {
   return useQuery({
-    queryKey: [...ORDER_QUERY_KEY, id],
+    queryKey: [...QUERY_KEYS.ORDER, id],
     queryFn: () => getOrderById(id),
     enabled: !!id,
     staleTime: 1 * 60 * 1000,
   });
 };
 
-export const useGetMyOrders = () => {
+export const useGetMyOrders = (filters = {}) => {
   return useQuery({
-    queryKey: MY_ORDERS_QUERY_KEY,
-    queryFn: getMyOrders,
+    queryKey: [...QUERY_KEYS.MY_ORDERS, filters],
+    queryFn: () => getMyOrders(filters),
     staleTime: 2 * 60 * 1000,
   });
 };
 
 export const useGetAllOrders = (filters = {}) => {
   return useQuery({
-    queryKey: [...ORDERS_QUERY_KEY, filters],
+    queryKey: [...QUERY_KEYS.ORDERS, filters],
     queryFn: () => getAllOrders(filters),
     staleTime: 1 * 60 * 1000,
   });
@@ -98,11 +112,17 @@ export const useUpdateOrderStatus = () => {
   return useMutation({
     mutationFn: updateOrderStatus,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ORDERS });
       queryClient.invalidateQueries({
-        queryKey: [...ORDER_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.ORDER, variables.id],
       });
-      queryClient.invalidateQueries({ queryKey: MY_ORDERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_ORDERS });
+
+      // Invalidate products when order is cancelled (stock changes)
+      if (variables.status === "cancelled") {
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+        queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT });
+      }
     },
   });
 };
@@ -114,9 +134,9 @@ export const useUpdateOrderToPaid = () => {
     mutationFn: updateOrderToPaid,
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: [...ORDER_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.ORDER, variables.id],
       });
-      queryClient.invalidateQueries({ queryKey: MY_ORDERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_ORDERS });
     },
   });
 };
@@ -127,9 +147,22 @@ export const useCancelOrder = () => {
   return useMutation({
     mutationFn: cancelOrder,
     onSuccess: (data, id) => {
-      queryClient.invalidateQueries({ queryKey: ORDERS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: [...ORDER_QUERY_KEY, id] });
-      queryClient.invalidateQueries({ queryKey: MY_ORDERS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ORDERS });
+      queryClient.invalidateQueries({ queryKey: [...QUERY_KEYS.ORDER, id] });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_ORDERS });
+
+      // Invalidate products when order is cancelled (stock restored)
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT });
     },
+  });
+};
+
+export const useGetPayPalClientId = () => {
+  return useQuery({
+    queryKey: QUERY_KEYS.PAYPAL_CONFIG,
+    queryFn: getPayPalClientId,
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
   });
 };

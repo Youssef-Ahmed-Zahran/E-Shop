@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
+import  axiosInstance  from "../../../../lib/axios";
 
 // Query Keys
 export const PURCHASE_INVOICES_QUERY_KEY = ["purchaseInvoices"];

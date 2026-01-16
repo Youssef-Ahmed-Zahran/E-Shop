@@ -1,10 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const PRODUCTS_QUERY_KEY = ["products"];
-export const PRODUCT_QUERY_KEY = ["product"];
-export const FEATURED_PRODUCTS_QUERY_KEY = ["featuredProducts"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -72,7 +68,7 @@ const updateProductStock = async ({ id, data }) => {
 
 export const useGetAllProducts = (filters = {}) => {
   return useQuery({
-    queryKey: [...PRODUCTS_QUERY_KEY, filters],
+    queryKey: [...QUERY_KEYS.PRODUCTS, filters],
     queryFn: () => getAllProducts(filters),
     staleTime: 3 * 60 * 1000,
   });
@@ -80,7 +76,7 @@ export const useGetAllProducts = (filters = {}) => {
 
 export const useGetProductById = (id) => {
   return useQuery({
-    queryKey: [...PRODUCT_QUERY_KEY, id],
+    queryKey: [...QUERY_KEYS.PRODUCT, id],
     queryFn: () => getProductById(id),
     enabled: !!id,
     staleTime: 3 * 60 * 1000,
@@ -89,7 +85,7 @@ export const useGetProductById = (id) => {
 
 export const useGetFeaturedProducts = () => {
   return useQuery({
-    queryKey: FEATURED_PRODUCTS_QUERY_KEY,
+    queryKey: QUERY_KEYS.FEATURED_PRODUCTS,
     queryFn: getFeaturedProducts,
     staleTime: 5 * 60 * 1000,
   });
@@ -97,7 +93,7 @@ export const useGetFeaturedProducts = () => {
 
 export const useCheckProductStock = (id, quantity) => {
   return useQuery({
-    queryKey: ["productStock", id, quantity],
+    queryKey: [...QUERY_KEYS.PRODUCT_STOCK, id, quantity],
     queryFn: () => checkProductStock({ id, quantity }),
     enabled: !!id && !!quantity,
     staleTime: 1 * 60 * 1000,
@@ -110,8 +106,8 @@ export const useCreateProduct = () => {
   return useMutation({
     mutationFn: createProduct,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FEATURED_PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -122,11 +118,11 @@ export const useUpdateProduct = () => {
   return useMutation({
     mutationFn: updateProduct,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
       queryClient.invalidateQueries({
-        queryKey: [...PRODUCT_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.PRODUCT, variables.id],
       });
-      queryClient.invalidateQueries({ queryKey: FEATURED_PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -137,11 +133,11 @@ export const useToggleFeaturedProduct = () => {
   return useMutation({
     mutationFn: toggleFeaturedProduct,
     onSuccess: (data, productId) => {
-      queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
       queryClient.invalidateQueries({
-        queryKey: [...PRODUCT_QUERY_KEY, productId],
+        queryKey: [...QUERY_KEYS.PRODUCT, productId],
       });
-      queryClient.invalidateQueries({ queryKey: FEATURED_PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -152,8 +148,11 @@ export const useDeleteProduct = () => {
   return useMutation({
     mutationFn: deleteProduct,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
-      queryClient.invalidateQueries({ queryKey: FEATURED_PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FAVOURITES });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ORDERS });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_ORDERS });
     },
   });
 };
@@ -164,9 +163,9 @@ export const useUpdateProductStock = () => {
   return useMutation({
     mutationFn: updateProductStock,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: PRODUCTS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
       queryClient.invalidateQueries({
-        queryKey: [...PRODUCT_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.PRODUCT, variables.id],
       });
     },
   });

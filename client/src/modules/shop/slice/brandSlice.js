@@ -1,14 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const BRANDS_QUERY_KEY = ["brands"];
-export const BRAND_QUERY_KEY = ["brand"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
-const getAllBrands = async () => {
-  const response = await axiosInstance.get("/brands");
+const getAllBrands = async ({
+  page = 1,
+  limit = 10,
+  search = "",
+  sortBy = "name",
+  sortOrder = "asc",
+}) => {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+    ...(search && { search }),
+    sortBy,
+    sortOrder,
+  });
+
+  const response = await axiosInstance.get(`/brands?${params.toString()}`);
   return response.data;
 };
 
@@ -34,17 +45,29 @@ const deleteBrand = async (id) => {
 
 // *********************************** ((React-Query Hooks)) **************************************** //
 
-export const useGetAllBrands = () => {
+export const useGetAllBrands = (params = {}) => {
+  const {
+    page = 1,
+    limit = 10,
+    search = "",
+    sortBy = "name",
+    sortOrder = "asc",
+  } = params;
+
   return useQuery({
-    queryKey: BRANDS_QUERY_KEY,
-    queryFn: getAllBrands,
+    queryKey: [
+      ...QUERY_KEYS.BRANDS,
+      { page, limit, search, sortBy, sortOrder },
+    ],
+    queryFn: () => getAllBrands({ page, limit, search, sortBy, sortOrder }),
     staleTime: 10 * 60 * 1000,
+    keepPreviousData: true, // Smooth pagination transitions
   });
 };
 
 export const useGetBrandById = (id) => {
   return useQuery({
-    queryKey: [...BRAND_QUERY_KEY, id],
+    queryKey: [...QUERY_KEYS.BRAND, id],
     queryFn: () => getBrandById(id),
     enabled: !!id,
     staleTime: 10 * 60 * 1000,
@@ -57,7 +80,7 @@ export const useCreateBrand = () => {
   return useMutation({
     mutationFn: createBrand,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: BRANDS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BRANDS });
     },
   });
 };
@@ -68,9 +91,9 @@ export const useUpdateBrand = () => {
   return useMutation({
     mutationFn: updateBrand,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: BRANDS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BRANDS });
       queryClient.invalidateQueries({
-        queryKey: [...BRAND_QUERY_KEY, variables.id],
+        queryKey: [...QUERY_KEYS.BRAND, variables.id],
       });
     },
   });
@@ -82,7 +105,7 @@ export const useDeleteBrand = () => {
   return useMutation({
     mutationFn: deleteBrand,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: BRANDS_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.BRANDS });
     },
   });
 };

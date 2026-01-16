@@ -1,8 +1,7 @@
+// cart/slice/cartSlice.js
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { axiosInstance } from "../lib/axios";
-
-// Query Keys
-export const CART_QUERY_KEY = ["cart"];
+import axiosInstance from "../../../lib/axios";
+import { QUERY_KEYS } from "../../../lib/queryKeys";
 
 // *********************************** ((API Functions)) **************************************** //
 
@@ -37,7 +36,7 @@ const clearCart = async () => {
 
 export const useGetUserCart = () => {
   return useQuery({
-    queryKey: CART_QUERY_KEY,
+    queryKey: QUERY_KEYS.CART,
     queryFn: getUserCart,
     staleTime: 1 * 60 * 1000,
   });
@@ -49,7 +48,7 @@ export const useAddItemToCart = () => {
   return useMutation({
     mutationFn: addItemToCart,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CART });
     },
   });
 };
@@ -60,7 +59,7 @@ export const useUpdateCartItem = () => {
   return useMutation({
     mutationFn: updateCartItem,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CART });
     },
   });
 };
@@ -71,7 +70,7 @@ export const useRemoveItemFromCart = () => {
   return useMutation({
     mutationFn: removeItemFromCart,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CART });
     },
   });
 };
@@ -82,7 +81,7 @@ export const useClearCart = () => {
   return useMutation({
     mutationFn: clearCart,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: CART_QUERY_KEY });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.CART });
     },
   });
 };
