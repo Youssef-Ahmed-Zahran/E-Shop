@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { Link } from "react-router-dom";
 import {
   useReactTable,
@@ -27,6 +27,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// ✅ Memoized table row component
+const ProductTableRow = memo(({ row }) => {
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      {row.getVisibleCells().map((cell) => (
+        <td key={cell.id} className="py-4 px-6">
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+ProductTableRow.displayName = "ProductTableRow";
+
 function Products() {
   const [filters, setFilters] = useState({ page: 1, limit: 10 });
   const [globalFilter, setGlobalFilter] = useState("");
@@ -36,53 +51,60 @@ function Products() {
   const deleteProduct = useDeleteProduct();
   const updateProduct = useUpdateProduct();
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      deleteProduct.mutate(id, {
-        onSuccess: () => {
-          toast.success("Product deleted successfully");
-        },
-        onError: (error) => {
-          toast.error(
-            error.response?.data?.message || "Failed to delete product"
-          );
-        },
-      });
-    }
-  };
-
-  const handleToggleFeatured = (product) => {
-    const updatedData = {
-      name: product.name,
-      description: product.description,
-      price: product.price,
-      category: product.category?._id,
-      brand: product.brand?._id,
-      stock: product.stock,
-      isFeatured: !product.isFeatured,
-      isActive: product.isActive,
-    };
-
-    updateProduct.mutate(
-      { id: product._id, data: updatedData },
-      {
-        onSuccess: () => {
-          toast.success(
-            `Product ${
-              !product.isFeatured ? "featured" : "unfeatured"
-            } successfully`
-          );
-        },
-        onError: (error) => {
-          toast.error(
-            error.response?.data?.message || "Failed to update product"
-          );
-        },
+  // ✅ Memoized handlers
+  const handleDelete = useCallback(
+    (id) => {
+      if (window.confirm("Are you sure you want to delete this product?")) {
+        deleteProduct.mutate(id, {
+          onSuccess: () => {
+            toast.success("Product deleted successfully");
+          },
+          onError: (error) => {
+            toast.error(
+              error.response?.data?.message || "Failed to delete product"
+            );
+          },
+        });
       }
-    );
-  };
+    },
+    [deleteProduct]
+  );
 
-  // Define columns
+  const handleToggleFeatured = useCallback(
+    (product) => {
+      const updatedData = {
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category?._id,
+        brand: product.brand?._id,
+        stock: product.stock,
+        isFeatured: !product.isFeatured,
+        isActive: product.isActive,
+      };
+
+      updateProduct.mutate(
+        { id: product._id, data: updatedData },
+        {
+          onSuccess: () => {
+            toast.success(
+              `Product ${
+                !product.isFeatured ? "featured" : "unfeatured"
+              } successfully`
+            );
+          },
+          onError: (error) => {
+            toast.error(
+              error.response?.data?.message || "Failed to update product"
+            );
+          },
+        }
+      );
+    },
+    [updateProduct]
+  );
+
+  // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
       {
@@ -202,7 +224,7 @@ function Products() {
         enableSorting: false,
       },
     ],
-    []
+    [handleDelete, handleToggleFeatured]
   );
 
   // Initialize table
@@ -320,21 +342,11 @@ function Products() {
                         </td>
                       </tr>
                     ) : (
-                      table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id} className="py-4 px-6">
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      table
+                        .getRowModel()
+                        .rows.map((row) => (
+                          <ProductTableRow key={row.id} row={row} />
+                        ))
                     )}
                   </tbody>
                 </table>

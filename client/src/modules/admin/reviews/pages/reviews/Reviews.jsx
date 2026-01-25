@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -27,6 +27,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// ✅ Memoized table row component
+const ReviewTableRow = memo(({ row }) => {
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      {row.getVisibleCells().map((cell) => (
+        <td key={cell.id} className="py-4 px-6">
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+ReviewTableRow.displayName = "ReviewTableRow";
+
 function Reviews() {
   const [filters, setFilters] = useState({
     page: 1,
@@ -42,31 +57,38 @@ function Reviews() {
   const deleteReview = useDeleteReview();
   const bulkApprove = useBulkApproveReviews();
 
-  const handleToggleApproval = (id) => {
-    toggleApproval.mutate(id, {
-      onSuccess: (data) => {
-        toast.success(data.message);
-      },
-      onError: (error) => {
-        toast.error(error?.response?.data?.message || "Action failed");
-      },
-    });
-  };
-
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this review?")) {
-      deleteReview.mutate(id, {
-        onSuccess: () => {
-          toast.success("Review deleted successfully");
+  // ✅ Memoized handlers
+  const handleToggleApproval = useCallback(
+    (id) => {
+      toggleApproval.mutate(id, {
+        onSuccess: (data) => {
+          toast.success(data.message);
         },
         onError: (error) => {
-          toast.error(error?.response?.data?.message || "Delete failed");
+          toast.error(error?.response?.data?.message || "Action failed");
         },
       });
-    }
-  };
+    },
+    [toggleApproval]
+  );
 
-  const handleBulkApprove = () => {
+  const handleDelete = useCallback(
+    (id) => {
+      if (window.confirm("Are you sure you want to delete this review?")) {
+        deleteReview.mutate(id, {
+          onSuccess: () => {
+            toast.success("Review deleted successfully");
+          },
+          onError: (error) => {
+            toast.error(error?.response?.data?.message || "Delete failed");
+          },
+        });
+      }
+    },
+    [deleteReview]
+  );
+
+  const handleBulkApprove = useCallback(() => {
     if (selectedReviews.length === 0) {
       toast.error("Please select reviews to approve");
       return;
@@ -81,30 +103,30 @@ function Reviews() {
         toast.error(error?.response?.data?.message || "Bulk approve failed");
       },
     });
-  };
+  }, [selectedReviews, bulkApprove]);
 
-  const toggleSelectReview = (id) => {
+  const toggleSelectReview = useCallback((id) => {
     setSelectedReviews((prev) =>
       prev.includes(id)
         ? prev.filter((reviewId) => reviewId !== id)
         : [...prev, id]
     );
-  };
+  }, []);
 
-  const selectAll = () => {
-    if (selectedReviews.length === reviews?.data?.length) {
-      setSelectedReviews([]);
-    } else {
-      setSelectedReviews(reviews?.data?.map((review) => review._id) || []);
-    }
-  };
+  const selectAll = useCallback(() => {
+    setSelectedReviews((prev) =>
+      prev.length === reviews?.data?.length
+        ? []
+        : reviews?.data?.map((review) => review._id) || []
+    );
+  }, [reviews?.data]);
 
-  // Define columns
+  // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
       {
         id: "select",
-        header: ({ table }) => (
+        header: () => (
           <input
             type="checkbox"
             onChange={selectAll}
@@ -235,7 +257,14 @@ function Reviews() {
         enableSorting: false,
       },
     ],
-    [selectedReviews, reviews?.data]
+    [
+      selectedReviews,
+      reviews?.data,
+      selectAll,
+      toggleSelectReview,
+      handleToggleApproval,
+      handleDelete,
+    ]
   );
 
   // Initialize table
@@ -432,21 +461,11 @@ function Reviews() {
                         </td>
                       </tr>
                     ) : (
-                      table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id} className="py-4 px-6">
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      table
+                        .getRowModel()
+                        .rows.map((row) => (
+                          <ReviewTableRow key={row.id} row={row} />
+                        ))
                     )}
                   </tbody>
                 </table>

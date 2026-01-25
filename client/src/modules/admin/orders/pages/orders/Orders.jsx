@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import { Link } from "react-router-dom";
 import {
   useReactTable,
@@ -21,6 +21,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// ✅ Memoized table row component
+const OrderTableRow = memo(({ row }) => {
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      {row.getVisibleCells().map((cell) => (
+        <td key={cell.id} className="px-6 py-4 whitespace-nowrap">
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+OrderTableRow.displayName = "OrderTableRow";
+
 function AdminOrders() {
   const [filters, setFilters] = useState({ page: 1, limit: 10, status: "" });
   const [globalFilter, setGlobalFilter] = useState("");
@@ -30,24 +45,28 @@ function AdminOrders() {
   const { data: orders, isLoading } = useGetAllOrders(filters);
   const updateStatus = useUpdateOrderStatus();
 
-  const handleStatusChange = (orderId, newStatus) => {
-    updateStatus.mutate(
-      { id: orderId, status: newStatus },
-      {
-        onSuccess: () => {
-          toast.success("Order status updated successfully");
-        },
-        onError: (error) => {
-          toast.error(
-            error.response?.data?.message || "Failed to update status"
-          );
-        },
-      }
-    );
-  };
+  // ✅ Memoized handlers
+  const handleStatusChange = useCallback(
+    (orderId, newStatus) => {
+      updateStatus.mutate(
+        { id: orderId, status: newStatus },
+        {
+          onSuccess: () => {
+            toast.success("Order status updated successfully");
+          },
+          onError: (error) => {
+            toast.error(
+              error.response?.data?.message || "Failed to update status"
+            );
+          },
+        }
+      );
+    },
+    [updateStatus]
+  );
 
   // Status colors
-  const getStatusColor = (status) => {
+  const getStatusColor = useCallback((status) => {
     const colors = {
       pending: "bg-yellow-100 text-yellow-800",
       processing: "bg-blue-100 text-blue-800",
@@ -56,15 +75,15 @@ function AdminOrders() {
       cancelled: "bg-red-100 text-red-800",
     };
     return colors[status] || "bg-gray-100 text-gray-800";
-  };
+  }, []);
 
   // Handle status filter change
-  const handleStatusFilterChange = (status) => {
+  const handleStatusFilterChange = useCallback((status) => {
     setStatusFilter(status);
-    setFilters({ ...filters, status, page: 1 }); // Reset to page 1 and update API filter
-  };
+    setFilters((prev) => ({ ...prev, status, page: 1 }));
+  }, []);
 
-  // Define columns
+  // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
       {
@@ -152,10 +171,10 @@ function AdminOrders() {
         enableSorting: false,
       },
     ],
-    [handleStatusChange]
+    [handleStatusChange, getStatusColor]
   );
 
-  // Initialize table (NO client-side pagination, only server-side)
+  // Initialize table
   const table = useReactTable({
     data: orders?.data || [],
     columns,
@@ -168,8 +187,7 @@ function AdminOrders() {
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
-    // Remove getPaginationRowModel - we're using server-side pagination
-    manualPagination: true, // Tell table we're handling pagination manually
+    manualPagination: true,
   });
 
   // Pagination info from API
@@ -183,13 +201,13 @@ function AdminOrders() {
   const endIndex = Math.min(currentPage * filters.limit, total);
 
   // Pagination handlers
-  const handlePageChange = (newPage) => {
-    setFilters({ ...filters, page: newPage });
+  const handlePageChange = useCallback((newPage) => {
+    setFilters((prev) => ({ ...prev, page: newPage }));
     window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  }, []);
 
   // Generate page numbers to display (max 5 pages)
-  const getPageNumbers = () => {
+  const getPageNumbers = useMemo(() => {
     const pages = [];
     const maxPagesToShow = 5;
 
@@ -214,7 +232,7 @@ function AdminOrders() {
     }
 
     return pages;
-  };
+  }, [currentPage, totalPages]);
 
   return (
     <div className="flex bg-gray-50 min-h-screen">
@@ -323,24 +341,11 @@ function AdminOrders() {
                         </td>
                       </tr>
                     ) : (
-                      table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <td
-                              key={cell.id}
-                              className="px-6 py-4 whitespace-nowrap"
-                            >
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      table
+                        .getRowModel()
+                        .rows.map((row) => (
+                          <OrderTableRow key={row.id} row={row} />
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -368,7 +373,7 @@ function AdminOrders() {
 
                   {/* Page Numbers */}
                   <div className="flex gap-1">
-                    {getPageNumbers().map((pageNum) => (
+                    {getPageNumbers.map((pageNum) => (
                       <button
                         key={pageNum}
                         onClick={() => handlePageChange(pageNum)}

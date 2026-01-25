@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -25,6 +25,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// ✅ Memoized table row component
+const UserTableRow = memo(({ row }) => {
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      {row.getVisibleCells().map((cell) => (
+        <td key={cell.id} className="py-4 px-6">
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+UserTableRow.displayName = "UserTableRow";
+
 function Users() {
   const [filters, setFilters] = useState({
     page: 1,
@@ -39,31 +54,38 @@ function Users() {
   const deleteUser = useDeleteUser();
   const toggleStatus = useToggleUserStatus();
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this user?")) {
-      deleteUser.mutate(id, {
-        onSuccess: () => {
-          toast.success("User deleted successfully");
+  // ✅ Memoized handlers
+  const handleDelete = useCallback(
+    (id) => {
+      if (window.confirm("Are you sure you want to delete this user?")) {
+        deleteUser.mutate(id, {
+          onSuccess: () => {
+            toast.success("User deleted successfully");
+          },
+          onError: (error) => {
+            toast.error(error?.response?.data?.message || "Delete failed");
+          },
+        });
+      }
+    },
+    [deleteUser]
+  );
+
+  const handleToggleStatus = useCallback(
+    (id) => {
+      toggleStatus.mutate(id, {
+        onSuccess: (data) => {
+          toast.success(data.message);
         },
         onError: (error) => {
-          toast.error(error?.response?.data?.message || "Delete failed");
+          toast.error(error?.response?.data?.message || "Status update failed");
         },
       });
-    }
-  };
+    },
+    [toggleStatus]
+  );
 
-  const handleToggleStatus = (id) => {
-    toggleStatus.mutate(id, {
-      onSuccess: (data) => {
-        toast.success(data.message);
-      },
-      onError: (error) => {
-        toast.error(error?.response?.data?.message || "Status update failed");
-      },
-    });
-  };
-
-  // Define columns
+  // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
       {
@@ -161,7 +183,7 @@ function Users() {
         enableSorting: false,
       },
     ],
-    []
+    [handleDelete, handleToggleStatus]
   );
 
   // Initialize table
@@ -345,21 +367,11 @@ function Users() {
                         </td>
                       </tr>
                     ) : (
-                      table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id} className="py-4 px-6">
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      table
+                        .getRowModel()
+                        .rows.map((row) => (
+                          <UserTableRow key={row.id} row={row} />
+                        ))
                     )}
                   </tbody>
                 </table>

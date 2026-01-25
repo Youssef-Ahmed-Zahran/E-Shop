@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -28,6 +28,21 @@ import {
 } from "lucide-react";
 import toast from "react-hot-toast";
 
+// ✅ Memoized table row component
+const InvoiceTableRow = memo(({ row }) => {
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      {row.getVisibleCells().map((cell) => (
+        <td key={cell.id} className="py-4 px-6">
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+InvoiceTableRow.displayName = "InvoiceTableRow";
+
 function PurchaseInvoices() {
   const { data: invoices, isLoading } = useGetAllPurchaseInvoices();
   const deleteInvoice = useDeletePurchaseInvoice();
@@ -39,50 +54,57 @@ function PurchaseInvoices() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
 
-  const handleDelete = async (invoiceId, invoiceNumber) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete invoice ${invoiceNumber}?`
-    );
+  // ✅ Memoized handlers
+  const handleDelete = useCallback(
+    async (invoiceId, invoiceNumber) => {
+      const confirmed = window.confirm(
+        `Are you sure you want to delete invoice ${invoiceNumber}?`
+      );
 
-    if (!confirmed) return;
+      if (!confirmed) return;
 
-    deleteInvoice.mutate(invoiceId, {
-      onSuccess: () => {
-        toast.success("Invoice deleted successfully!");
-      },
-      onError: (error) => {
-        toast.error(
-          error.response?.data?.message || "Failed to delete invoice"
-        );
-      },
-    });
-  };
+      deleteInvoice.mutate(invoiceId, {
+        onSuccess: () => {
+          toast.success("Invoice deleted successfully!");
+        },
+        onError: (error) => {
+          toast.error(
+            error.response?.data?.message || "Failed to delete invoice"
+          );
+        },
+      });
+    },
+    [deleteInvoice]
+  );
 
-  const handleCancel = async (invoiceId, invoiceNumber) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to cancel invoice ${invoiceNumber}?`
-    );
+  const handleCancel = useCallback(
+    async (invoiceId, invoiceNumber) => {
+      const confirmed = window.confirm(
+        `Are you sure you want to cancel invoice ${invoiceNumber}?`
+      );
 
-    if (!confirmed) return;
+      if (!confirmed) return;
 
-    cancelInvoice.mutate(invoiceId, {
-      onSuccess: () => {
-        toast.success("Invoice cancelled successfully!");
-      },
-      onError: (error) => {
-        toast.error(
-          error.response?.data?.message || "Failed to cancel invoice"
-        );
-      },
-    });
-  };
+      cancelInvoice.mutate(invoiceId, {
+        onSuccess: () => {
+          toast.success("Invoice cancelled successfully!");
+        },
+        onError: (error) => {
+          toast.error(
+            error.response?.data?.message || "Failed to cancel invoice"
+          );
+        },
+      });
+    },
+    [cancelInvoice]
+  );
 
-  const handlePreview = (invoice) => {
+  const handlePreview = useCallback((invoice) => {
     setSelectedInvoice(invoice);
     setShowPreviewModal(true);
-  };
+  }, []);
 
-  // Define columns
+  // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
       {
@@ -182,7 +204,13 @@ function PurchaseInvoices() {
         enableSorting: false,
       },
     ],
-    [cancelInvoice.isPending, deleteInvoice.isPending]
+    [
+      handleDelete,
+      handleCancel,
+      handlePreview,
+      cancelInvoice.isPending,
+      deleteInvoice.isPending,
+    ]
   );
 
   // Initialize table
@@ -346,21 +374,11 @@ function PurchaseInvoices() {
                         </td>
                       </tr>
                     ) : (
-                      table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id} className="py-4 px-6">
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      table
+                        .getRowModel()
+                        .rows.map((row) => (
+                          <InvoiceTableRow key={row.id} row={row} />
+                        ))
                     )}
                   </tbody>
                 </table>
@@ -439,9 +457,7 @@ function PurchaseInvoices() {
         <AddPurchaseInvoices
           showModal={showModal}
           setShowModal={setShowModal}
-          onSuccess={() => {
-            // Optionally trigger a refetch or any other action
-          }}
+          onSuccess={() => {}}
         />
 
         <PurchaseInvoicesPreview

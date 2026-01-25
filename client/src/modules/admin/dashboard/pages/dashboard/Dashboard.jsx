@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useGetAllOrders } from "../../../../order/slice/orderSlice";
 import { useGetAllProducts } from "../../../../product/slice/productSlice";
 import { useGetAllUsers } from "../../../../profile/slice/userSlice";
@@ -31,18 +32,36 @@ function Dashboard() {
   const { data: products } = useGetAllProducts({ limit: 100 });
   const { data: users } = useGetAllUsers({ limit: 100 });
 
-  const stats = {
-    totalRevenue:
-      orders?.data?.reduce((sum, order) => sum + order.totalAmount, 0) || 0,
-    totalProducts: products?.pagination?.total || 0,
-    totalOrders: orders?.pagination?.total || 0,
-    totalUsers: users?.pagination?.total || 0,
-  };
+  // ✅ Memoize stats calculations
+  const stats = useMemo(
+    () => ({
+      totalRevenue:
+        orders?.data?.reduce(
+          (sum, order) => sum + (order.totalAmount || 0),
+          0
+        ) || 0,
+      totalProducts: products?.pagination?.total || 0,
+      totalOrders: orders?.pagination?.total || 0,
+      totalUsers: users?.pagination?.total || 0,
+    }),
+    [
+      orders?.data,
+      orders?.pagination?.total,
+      products?.pagination?.total,
+      users?.pagination?.total,
+    ]
+  );
 
-  const recentOrders = orders?.data?.slice(0, 5) || [];
+  // ✅ Memoize recent orders
+  const recentOrders = useMemo(
+    () => orders?.data?.slice(0, 5) || [],
+    [orders?.data]
+  );
 
-  // Prepare revenue trend data (last 7 days)
-  const getRevenueTrend = () => {
+  // ✅ Memoize revenue trend calculation (EXPENSIVE) - FIXED: Use orders object
+  const revenueTrendData = useMemo(() => {
+    if (!orders?.data) return [];
+
     const last7Days = [];
     const today = new Date();
 
@@ -51,15 +70,16 @@ function Dashboard() {
       date.setDate(date.getDate() - i);
       const dateStr = date.toISOString().split("T")[0];
 
-      const dayRevenue =
-        orders?.data
-          ?.filter((order) => {
-            const orderDate = new Date(order.createdAt)
-              .toISOString()
-              .split("T")[0];
-            return orderDate === dateStr;
-          })
-          .reduce((sum, order) => sum + order.totalAmount, 0) || 0;
+      const dayOrders = orders.data.filter((order) => {
+        if (!order.createdAt) return false;
+        const orderDate = new Date(order.createdAt).toISOString().split("T")[0];
+        return orderDate === dateStr;
+      });
+
+      const dayRevenue = dayOrders.reduce(
+        (sum, order) => sum + (order.totalAmount || 0),
+        0
+      );
 
       last7Days.push({
         date: date.toLocaleDateString("en-US", {
@@ -67,104 +87,114 @@ function Dashboard() {
           day: "numeric",
         }),
         revenue: parseFloat(dayRevenue.toFixed(2)),
-        orders:
-          orders?.data?.filter((order) => {
-            const orderDate = new Date(order.createdAt)
-              .toISOString()
-              .split("T")[0];
-            return orderDate === dateStr;
-          }).length || 0,
+        orders: dayOrders.length,
       });
     }
 
     return last7Days;
-  };
+  }, [orders]); // ✅ FIXED: Use orders object instead of orders?.data
 
-  // Prepare order status distribution
-  const getOrderStatusData = () => {
-    const statusCount = {};
-    orders?.data?.forEach((order) => {
-      const status = order.orderStatus || "pending";
-      statusCount[status] = (statusCount[status] || 0) + 1;
-    });
+  // ✅ Memoize order status distribution (EXPENSIVE) - FIXED: Use orders object
+  const orderStatusData = useMemo(() => {
+    if (!orders?.data) return [];
+
+    const statusCount = orders.data.reduce((acc, order) => {
+      const status = (order.orderStatus || "pending").toLowerCase();
+      acc[status] = (acc[status] || 0) + 1;
+      return acc;
+    }, {});
 
     return Object.entries(statusCount).map(([status, count]) => ({
       name: status.charAt(0).toUpperCase() + status.slice(1),
       value: count,
+      rawName: status, // Keep original for color mapping
     }));
+  }, [orders]); // ✅ FIXED: Use orders object instead of orders?.data
+
+  // ✅ Memoize top products calculation (EXPENSIVE) - FIXED: Use products object
+  const topProductsData = useMemo(() => {
+    if (!products?.data) return [];
+
+    // Create a copy to avoid mutating original array
+    return [...products.data]
+      .sort((a, b) => (b.stock || 0) - (a.stock || 0))
+      .slice(0, 5)
+      .map((product) => ({
+        name:
+          product.name && product.name.length > 20
+            ? product.name.substring(0, 20) + "..."
+            : product.name || "Unnamed Product",
+        stock: product.stock || 0,
+        price: product.price || 0,
+      }));
+  }, [products]); // ✅ FIXED: Use products object instead of products?.data
+
+  // ✅ Memoize stat cards configuration
+  const statCards = useMemo(
+    () => [
+      {
+        title: "Total Revenue",
+        value: `$${stats.totalRevenue.toFixed(2)}`,
+        icon: DollarSign,
+        gradient: "from-emerald-500 to-teal-600",
+        bgGradient: "from-emerald-50 to-teal-50",
+        iconBg: "bg-emerald-100",
+        iconColor: "text-emerald-600",
+        trend: "+12.5%",
+      },
+      {
+        title: "Total Products",
+        value: stats.totalProducts.toLocaleString(),
+        icon: Package,
+        gradient: "from-blue-500 to-indigo-600",
+        bgGradient: "from-blue-50 to-indigo-50",
+        iconBg: "bg-blue-100",
+        iconColor: "text-blue-600",
+        trend: "+8.2%",
+      },
+      {
+        title: "Total Orders",
+        value: stats.totalOrders.toLocaleString(),
+        icon: ShoppingCart,
+        gradient: "from-purple-500 to-pink-600",
+        bgGradient: "from-purple-50 to-pink-50",
+        iconBg: "bg-purple-100",
+        iconColor: "text-purple-600",
+        trend: "+23.1%",
+      },
+      {
+        title: "Total Users",
+        value: stats.totalUsers.toLocaleString(),
+        icon: Users,
+        gradient: "from-orange-500 to-red-600",
+        bgGradient: "from-orange-50 to-red-50",
+        iconBg: "bg-orange-100",
+        iconColor: "text-orange-600",
+        trend: "+5.4%",
+      },
+    ],
+    [stats]
+  );
+
+  // ✅ Memoize colors configuration - FIXED: Better color mapping
+  const getStatusColor = (status) => {
+    const statusMap = {
+      delivered: "#10b981",
+      pending: "#3b82f6",
+      processing: "#8b5cf6",
+      cancelled: "#ef4444",
+      shipped: "#f59e0b",
+      default: "#94a3b8",
+    };
+
+    const lowerStatus = status.toLowerCase();
+    return statusMap[lowerStatus] || statusMap.default;
   };
 
-  // Prepare top products by stock
-  const getTopProducts = () => {
-    return (
-      products?.data
-        ?.sort((a, b) => b.stock - a.stock)
-        .slice(0, 5)
-        .map((product) => ({
-          name:
-            product.name.length > 20
-              ? product.name.substring(0, 20) + "..."
-              : product.name,
-          stock: product.stock,
-          price: product.price,
-        })) || []
-    );
-  };
-
-  const statCards = [
-    {
-      title: "Total Revenue",
-      value: `$${stats.totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
-      gradient: "from-emerald-500 to-teal-600",
-      bgGradient: "from-emerald-50 to-teal-50",
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
-      trend: "+12.5%",
-    },
-    {
-      title: "Total Products",
-      value: stats.totalProducts,
-      icon: Package,
-      gradient: "from-blue-500 to-indigo-600",
-      bgGradient: "from-blue-50 to-indigo-50",
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
-      trend: "+8.2%",
-    },
-    {
-      title: "Total Orders",
-      value: stats.totalOrders,
-      icon: ShoppingCart,
-      gradient: "from-purple-500 to-pink-600",
-      bgGradient: "from-purple-50 to-pink-50",
-      iconBg: "bg-purple-100",
-      iconColor: "text-purple-600",
-      trend: "+23.1%",
-    },
-    {
-      title: "Total Users",
-      value: stats.totalUsers,
-      icon: Users,
-      gradient: "from-orange-500 to-red-600",
-      bgGradient: "from-orange-50 to-red-50",
-      iconBg: "bg-orange-100",
-      iconColor: "text-orange-600",
-      trend: "+5.4%",
-    },
-  ];
-
-  const COLORS = {
-    delivered: "#10b981",
-    pending: "#3b82f6",
-    processing: "#8b5cf6",
-    cancelled: "#ef4444",
-    shipped: "#f59e0b",
-  };
-
-  const revenueTrendData = getRevenueTrend();
-  const orderStatusData = getOrderStatusData();
-  const topProductsData = getTopProducts();
+  // ✅ Memoize colors for pie chart
+  const pieChartColors = useMemo(() => {
+    return orderStatusData.map((item) => getStatusColor(item.rawName));
+  }, [orderStatusData]);
 
   return (
     <div className="flex min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
@@ -185,36 +215,39 @@ function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
-          {statCards.map((stat, index) => (
-            <div
-              key={index}
-              className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1"
-            >
+          {statCards.map((stat, index) => {
+            const Icon = stat.icon;
+            return (
               <div
-                className={`absolute inset-0 bg-gradient-to-br ${stat.bgGradient} opacity-50`}
-              ></div>
-              <div className="relative p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div
-                    className={`${stat.iconBg} p-3 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300`}
-                  >
-                    <stat.icon className={stat.iconColor} size={24} />
+                key={index}
+                className="group relative bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-all duration-300 overflow-hidden transform hover:-translate-y-1"
+              >
+                <div
+                  className={`absolute inset-0 bg-gradient-to-br ${stat.bgGradient} opacity-50`}
+                ></div>
+                <div className="relative p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div
+                      className={`${stat.iconBg} p-3 rounded-xl shadow-sm group-hover:scale-110 transition-transform duration-300`}
+                    >
+                      <Icon className={stat.iconColor} size={24} />
+                    </div>
+                    <div className="flex items-center gap-1 text-emerald-600 text-sm font-semibold">
+                      <TrendingUp size={14} />
+                      <span>{stat.trend}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-1 text-emerald-600 text-sm font-semibold">
-                    <TrendingUp size={14} />
-                    <span>{stat.trend}</span>
-                  </div>
+                  <h3 className="text-slate-600 text-sm font-medium mb-2">
+                    {stat.title}
+                  </h3>
+                  <p className="text-3xl font-bold text-slate-900 mb-1">
+                    {stat.value}
+                  </p>
+                  <div className="w-12 h-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent rounded-full"></div>
                 </div>
-                <h3 className="text-slate-600 text-sm font-medium mb-2">
-                  {stat.title}
-                </h3>
-                <p className="text-3xl font-bold text-slate-900 mb-1">
-                  {stat.value}
-                </p>
-                <div className="w-12 h-1 bg-gradient-to-r from-transparent via-slate-300 to-transparent rounded-full"></div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Charts Section */}
@@ -244,11 +277,17 @@ function Dashboard() {
                       borderRadius: "8px",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
+                    formatter={(value, name) => {
+                      if (name === "revenue") return [`$${value}`, "Revenue"];
+                      if (name === "orders") return [value, "Orders"];
+                      return [value, name];
+                    }}
                   />
                   <Legend />
                   <Line
                     type="monotone"
                     dataKey="revenue"
+                    name="Revenue"
                     stroke="#3b82f6"
                     strokeWidth={3}
                     dot={{ fill: "#3b82f6", r: 4 }}
@@ -257,6 +296,7 @@ function Dashboard() {
                   <Line
                     type="monotone"
                     dataKey="orders"
+                    name="Orders"
                     stroke="#8b5cf6"
                     strokeWidth={2}
                     dot={{ fill: "#8b5cf6", r: 3 }}
@@ -290,7 +330,7 @@ function Dashboard() {
                     {orderStatusData.map((entry, index) => (
                       <Cell
                         key={`cell-${index}`}
-                        fill={COLORS[entry.name.toLowerCase()] || "#94a3b8"}
+                        fill={pieChartColors[index]}
                       />
                     ))}
                   </Pie>
@@ -301,6 +341,10 @@ function Dashboard() {
                       borderRadius: "8px",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
+                    formatter={(value, name, props) => [
+                      value,
+                      props.payload.name,
+                    ]}
                   />
                 </PieChart>
               </ResponsiveContainer>
@@ -332,9 +376,19 @@ function Dashboard() {
                       borderRadius: "8px",
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
+                    formatter={(value, name) => {
+                      if (name === "stock") return [value, "Stock"];
+                      if (name === "price") return [`$${value}`, "Price"];
+                      return [value, name];
+                    }}
                   />
                   <Legend />
-                  <Bar dataKey="stock" fill="#10b981" radius={[8, 8, 0, 0]} />
+                  <Bar
+                    dataKey="stock"
+                    name="Stock"
+                    fill="#10b981"
+                    radius={[8, 8, 0, 0]}
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -384,21 +438,27 @@ function Dashboard() {
               <tbody className="divide-y divide-slate-100">
                 {recentOrders.map((order) => (
                   <tr
-                    key={order._id}
+                    key={order._id || order.id}
                     className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-transparent transition-all duration-200 cursor-pointer group"
                   >
                     <td className="py-4 px-6">
                       <span className="font-semibold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        #{order.orderNumber}
+                        #
+                        {order.orderNumber ||
+                          `ORD${order._id?.slice(-6) || "XXXXXX"}`}
                       </span>
                     </td>
                     <td className="py-4 px-6">
                       <div className="flex items-center gap-3">
                         <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-600 rounded-full flex items-center justify-center text-white font-semibold text-sm">
-                          {order.user?.name?.charAt(0) || "U"}
+                          {order.user?.name?.charAt(0) ||
+                            order.customer?.name?.charAt(0) ||
+                            "U"}
                         </div>
                         <span className="text-slate-700 font-medium">
-                          {order.user?.name || "Unknown"}
+                          {order.user?.name ||
+                            order.customer?.name ||
+                            "Unknown Customer"}
                         </span>
                       </div>
                     </td>
@@ -421,20 +481,25 @@ function Dashboard() {
                               : "bg-blue-500"
                           }`}
                         ></span>
-                        {order.orderStatus}
+                        {order.orderStatus || "Pending"}
                       </span>
                     </td>
                     <td className="py-4 px-6">
                       <span className="font-bold text-slate-900">
-                        ${order.totalAmount.toFixed(2)}
+                        ${(order.totalAmount || 0).toFixed(2)}
                       </span>
                     </td>
                     <td className="py-4 px-6 text-slate-600">
-                      {new Date(order.createdAt).toLocaleDateString("en-US", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
+                      {order.createdAt
+                        ? new Date(order.createdAt).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                              year: "numeric",
+                            }
+                          )
+                        : "N/A"}
                     </td>
                   </tr>
                 ))}

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, memo } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -29,6 +29,21 @@ import toast from "react-hot-toast";
 import AddSupplier from "../../components/add-supplier/AddSupplier";
 import EditSupplier from "../../components/edit-supplier/EditSupplier";
 
+// ✅ Memoized table row component
+const SupplierTableRow = memo(({ row }) => {
+  return (
+    <tr className="hover:bg-gray-50 transition-colors">
+      {row.getVisibleCells().map((cell) => (
+        <td key={cell.id} className="py-4 px-6">
+          {flexRender(cell.column.columnDef.cell, cell.getContext())}
+        </td>
+      ))}
+    </tr>
+  );
+});
+
+SupplierTableRow.displayName = "SupplierTableRow";
+
 function Suppliers() {
   const { data: suppliers, isLoading } = useGetAllSuppliers();
   const deleteSupplier = useDeleteSupplier();
@@ -43,37 +58,44 @@ function Suppliers() {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
 
-  const handleEdit = (supplier) => {
+  // ✅ Memoized handlers
+  const handleEdit = useCallback((supplier) => {
     setEditingSupplier(supplier);
     setShowEditModal(true);
-  };
+  }, []);
 
-  const handleCloseEditModal = () => {
+  const handleCloseEditModal = useCallback(() => {
     setShowEditModal(false);
     setEditingSupplier(null);
-  };
+  }, []);
 
-  const handleDelete = (id) => {
-    if (window.confirm("Are you sure you want to delete this supplier?")) {
-      deleteSupplier.mutate(id, {
-        onSuccess: () => toast.success("Supplier deleted successfully"),
+  const handleDelete = useCallback(
+    (id) => {
+      if (window.confirm("Are you sure you want to delete this supplier?")) {
+        deleteSupplier.mutate(id, {
+          onSuccess: () => toast.success("Supplier deleted successfully"),
+          onError: (error) => {
+            toast.error(error?.response?.data?.message || "Delete failed");
+          },
+        });
+      }
+    },
+    [deleteSupplier]
+  );
+
+  const handleToggleStatus = useCallback(
+    (id) => {
+      toggleStatus.mutate(id, {
+        onSuccess: () => toast.success("Status updated successfully"),
         onError: (error) => {
-          toast.error(error?.response?.data?.message || "Delete failed");
+          toast.error(error?.response?.data?.message || "Status update failed");
         },
       });
-    }
-  };
+    },
+    [toggleStatus]
+  );
 
-  const handleToggleStatus = (id) => {
-    toggleStatus.mutate(id, {
-      onSuccess: () => toast.success("Status updated successfully"),
-      onError: (error) => {
-        toast.error(error?.response?.data?.message || "Status update failed");
-      },
-    });
-  };
-
-  // Define columns
+  // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
       {
@@ -168,7 +190,7 @@ function Suppliers() {
         enableSorting: false,
       },
     ],
-    []
+    [handleEdit, handleDelete, handleToggleStatus]
   );
 
   // Initialize table
@@ -330,21 +352,11 @@ function Suppliers() {
                         </td>
                       </tr>
                     ) : (
-                      table.getRowModel().rows.map((row) => (
-                        <tr
-                          key={row.id}
-                          className="hover:bg-gray-50 transition-colors"
-                        >
-                          {row.getVisibleCells().map((cell) => (
-                            <td key={cell.id} className="py-4 px-6">
-                              {flexRender(
-                                cell.column.columnDef.cell,
-                                cell.getContext()
-                              )}
-                            </td>
-                          ))}
-                        </tr>
-                      ))
+                      table
+                        .getRowModel()
+                        .rows.map((row) => (
+                          <SupplierTableRow key={row.id} row={row} />
+                        ))
                     )}
                   </tbody>
                 </table>
