@@ -40,12 +40,38 @@ const checkProductStock = async ({ id, quantity }) => {
 };
 
 const createProduct = async (data) => {
-  const response = await axiosInstance.post("/products", data);
+  // Detect if data is FormData (for file uploads)
+  const config =
+    data instanceof FormData
+      ? {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      : {};
+
+  const response = await axiosInstance.post("/products", data, config);
   return response.data;
 };
 
 const updateProduct = async ({ id, data }) => {
-  const response = await axiosInstance.put(`/products/${id}`, data);
+  console.log("updateProduct API called with:", { id, data });
+
+  // Detect if data is FormData (for file uploads)
+  const config =
+    data instanceof FormData
+      ? {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      : {};
+
+  console.log("Request config:", config);
+
+  const response = await axiosInstance.put(`/products/${id}`, data, config);
+  console.log("Update response:", response.data);
+
   return response.data;
 };
 
@@ -106,8 +132,12 @@ export const useCreateProduct = () => {
   return useMutation({
     mutationFn: createProduct,
     onSuccess: () => {
+      // Invalidate all product-related queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
+
+      // Optionally refetch immediately
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.PRODUCTS });
     },
   });
 };
@@ -118,11 +148,34 @@ export const useUpdateProduct = () => {
   return useMutation({
     mutationFn: updateProduct,
     onSuccess: (data, variables) => {
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      console.log("Update mutation success, invalidating queries...");
+
+      // Invalidate all product lists (with all filter combinations)
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.PRODUCTS,
+        refetchType: "all", // This ensures all matching queries are refetched
+      });
+
+      // Invalidate the specific product
       queryClient.invalidateQueries({
         queryKey: [...QUERY_KEYS.PRODUCT, variables.id],
       });
-      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
+
+      // Invalidate featured products
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.FEATURED_PRODUCTS,
+      });
+
+      // Force immediate refetch of product lists
+      queryClient.refetchQueries({
+        queryKey: QUERY_KEYS.PRODUCTS,
+        type: "active",
+      });
+
+      console.log("Query invalidation complete");
+    },
+    onError: (error) => {
+      console.error("Update mutation error:", error);
     },
   });
 };
@@ -138,6 +191,10 @@ export const useToggleFeaturedProduct = () => {
         queryKey: [...QUERY_KEYS.PRODUCT, productId],
       });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
+
+      // Refetch immediately
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.PRODUCTS });
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.FEATURED_PRODUCTS });
     },
   });
 };
@@ -153,6 +210,9 @@ export const useDeleteProduct = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.FAVOURITES });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ORDERS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_ORDERS });
+
+      // Refetch immediately
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.PRODUCTS });
     },
   });
 };
@@ -167,6 +227,9 @@ export const useUpdateProductStock = () => {
       queryClient.invalidateQueries({
         queryKey: [...QUERY_KEYS.PRODUCT, variables.id],
       });
+
+      // Refetch immediately
+      queryClient.refetchQueries({ queryKey: QUERY_KEYS.PRODUCTS });
     },
   });
 };
