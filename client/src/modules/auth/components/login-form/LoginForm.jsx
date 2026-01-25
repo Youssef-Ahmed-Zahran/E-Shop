@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
-import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from "lucide-react";
 import { useLoginUser } from "../../../../modules/auth/slice/authSlice";
 
 const LoginForm = () => {
@@ -30,30 +30,34 @@ const LoginForm = () => {
       const status = error.response?.status;
       const message = error.response?.data?.message;
 
-      // Handle different error types
       if (status === 429) {
         toast.error(message || "Too many attempts. Please try again later.");
       } else if (status === 423) {
         toast.error(message || "Account temporarily locked.");
       } else {
-        toast.error(message || "Login failed");
+        toast.error(message || "Invalid credentials");
       }
     }
   };
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   return (
-    <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-      <div className="rounded-md shadow-sm space-y-4">
+    <form className="space-y-6" onSubmit={handleSubmit}>
+      <div className="space-y-5">
+        {/* Email Field */}
         <div>
-          <label htmlFor="email" className="sr-only">
+          <label
+            htmlFor="email"
+            className="block text-sm font-medium text-gray-700 mb-1.5 ml-1"
+          >
             Email address
           </label>
-          <div className="relative">
+          <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Mail className="h-5 w-5 text-gray-400" />
+              <Mail className="h-5 w-5 text-gray-400 group-focus-within:text-blue-600 transition-colors duration-200" />
             </div>
             <input
               id="email"
@@ -63,19 +67,23 @@ const LoginForm = () => {
               required
               value={formData.email}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-3 pl-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-              placeholder="Email address"
+              className="block w-full pl-10 pr-3 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 sm:text-sm"
+              placeholder="name@example.com"
             />
           </div>
         </div>
 
+        {/* Password Field */}
         <div>
-          <label htmlFor="password" className="sr-only">
+          <label
+            htmlFor="password"
+            className="block text-sm font-medium text-gray-700 mb-1.5 ml-1"
+          >
             Password
           </label>
-          <div className="relative">
+          <div className="relative group">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Lock className="h-5 w-5 text-gray-400" />
+              <Lock className="h-5 w-5 text-gray-400 group-focus-within:text-blue-600 transition-colors duration-200" />
             </div>
             <input
               id="password"
@@ -85,8 +93,8 @@ const LoginForm = () => {
               required
               value={formData.password}
               onChange={handleChange}
-              className="appearance-none relative block w-full px-3 py-3 pl-10 pr-10 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-lg focus:outline-none focus:ring-blue-500 focus:border-blue-500 focus:z-10 sm:text-sm"
-              placeholder="Password"
+              className="block w-full pl-10 pr-10 py-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none focus:bg-white focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200 sm:text-sm"
+              placeholder="Enter your password"
             />
             <button
               type="button"
@@ -94,47 +102,60 @@ const LoginForm = () => {
               className="absolute inset-y-0 right-0 pr-3 flex items-center"
             >
               {showPassword ? (
-                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                <EyeOff className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
               ) : (
-                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600" />
+                <Eye className="h-5 w-5 text-gray-400 hover:text-gray-600 transition-colors" />
               )}
             </button>
           </div>
         </div>
       </div>
 
+      {/* Remember Me & Forgot Password */}
       <div className="flex items-center justify-between">
         <div className="flex items-center">
           <input
             id="remember-me"
             name="remember-me"
             type="checkbox"
-            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded cursor-pointer transition-colors"
           />
           <label
             htmlFor="remember-me"
-            className="ml-2 block text-sm text-gray-900"
+            className="ml-2 block text-sm text-gray-600 cursor-pointer select-none"
           >
             Remember me
           </label>
         </div>
 
         <div className="text-sm">
-          <a href="#" className="font-medium text-blue-600 hover:text-blue-500">
-            Forgot your password?
+          <a
+            href="#"
+            className="font-medium text-blue-600 hover:text-blue-500 transition-colors"
+          >
+            Forgot password?
           </a>
         </div>
       </div>
 
-      <div>
-        <button
-          type="submit"
-          disabled={loginMutation.isPending}
-          className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-medium rounded-lg text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
-        >
-          {loginMutation.isPending ? "Signing in..." : "Sign in"}
-        </button>
-      </div>
+      {/* Submit Button */}
+      <button
+        type="submit"
+        disabled={loginMutation.isPending}
+        className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-semibold rounded-xl text-white bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-70 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 hover:shadow-blue-500/40 hover:-translate-y-0.5 transition-all duration-200"
+      >
+        {loginMutation.isPending ? (
+          <div className="flex items-center">
+            <Loader2 className="h-5 w-5 animate-spin mr-2" />
+            Signing in...
+          </div>
+        ) : (
+          <div className="flex items-center">
+            Sign in
+            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+          </div>
+        )}
+      </button>
     </form>
   );
 };
