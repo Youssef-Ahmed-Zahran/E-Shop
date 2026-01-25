@@ -60,10 +60,15 @@ function ProductReviews({
     setEditData({ rating: 5, comment: "" });
   };
 
+  // Updated: Now passes productId along with other data
   const handleUpdateReview = (e) => {
     e.preventDefault();
     updateReview.mutate(
-      { id: editingReviewId, data: editData },
+      {
+        id: editingReviewId,
+        data: editData,
+        productId, // Pass productId for cache invalidation
+      },
       {
         onSuccess: () => {
           setEditingReviewId(null);
@@ -73,10 +78,17 @@ function ProductReviews({
     );
   };
 
+  // Updated: Now passes both reviewId and productId
   const handleDeleteReview = (reviewId) => {
-    deleteReview.mutate(reviewId, {
-      onSuccess: () => setDeleteConfirmId(null),
-    });
+    deleteReview.mutate(
+      {
+        reviewId,
+        productId, // Pass productId for cache invalidation
+      },
+      {
+        onSuccess: () => setDeleteConfirmId(null),
+      }
+    );
   };
 
   const handleToggleMenu = (e, reviewId) => {
@@ -93,7 +105,7 @@ function ProductReviews({
             Customer Reviews
           </h2>
           <p className="text-gray-600">
-            Average rating: {averageRating.toFixed(1)} out of 5
+            Average rating: {averageRating?.toFixed(1) || "0.0"} out of 5
           </p>
         </div>
         {user && (

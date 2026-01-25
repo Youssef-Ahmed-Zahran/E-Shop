@@ -53,7 +53,7 @@ const getAllReviews = async ({
   if (limit) params.append("limit", limit);
   if (isApproved !== undefined) params.append("isApproved", isApproved);
   if (productId) params.append("productId", productId);
-  if (userId) params.append("userId", userId);
+  if (userId) params.append("userId", viserId);
 
   const response = await axiosInstance.get(
     `/reviews/admin/all?${params.toString()}`
@@ -66,8 +66,9 @@ const updateReview = async ({ id, data }) => {
   return response.data;
 };
 
-const deleteReview = async (id) => {
-  const response = await axiosInstance.delete(`/reviews/${id}`);
+// Updated: Now accepts an object with reviewId
+const deleteReview = async ({ reviewId }) => {
+  const response = await axiosInstance.delete(`/reviews/${reviewId}`);
   return response.data;
 };
 
@@ -98,6 +99,7 @@ export const useCreateReview = () => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_REVIEWS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
 
+      // Invalidate product queries to update rating
       queryClient.invalidateQueries({
         queryKey: [...QUERY_KEYS.PRODUCT, variables.productId],
       });
@@ -132,18 +134,20 @@ export const useGetAllReviews = (filters = {}) => {
   });
 };
 
+// Updated: Now uses productId from variables
 export const useUpdateReview = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: updateReview,
-    onSuccess: (data) => {
+    mutationFn: ({ id, data }) => updateReview({ id, data }),
+    onSuccess: (data, variables) => {
       // Invalidate review queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_REVIEWS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_REVIEWS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
 
-      const productId = data?.data?.product;
+      // Get productId from variables (passed when calling mutate) or from response
+      const productId = variables.productId || data?.data?.product;
       if (productId) {
         queryClient.invalidateQueries({
           queryKey: [...QUERY_KEYS.PRODUCT, productId],
@@ -155,18 +159,20 @@ export const useUpdateReview = () => {
   });
 };
 
+// Updated: Now accepts object with reviewId and productId
 export const useDeleteReview = () => {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: deleteReview,
-    onSuccess: (data) => {
+    mutationFn: ({ reviewId }) => deleteReview({ reviewId }),
+    onSuccess: (data, variables) => {
       // Invalidate review queries
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.PRODUCT_REVIEWS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.MY_REVIEWS });
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.ALL_REVIEWS });
 
-      const productId = data?.data?.product;
+      // Get productId from variables (passed when calling mutate)
+      const productId = variables.productId;
       if (productId) {
         queryClient.invalidateQueries({
           queryKey: [...QUERY_KEYS.PRODUCT, productId],
