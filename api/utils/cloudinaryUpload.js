@@ -1,4 +1,5 @@
 import cloudinary from "../lib/cloudinary.js";
+
 /**
  * Upload single base64 image to Cloudinary
  */
@@ -40,15 +41,34 @@ export const uploadMultipleToCloudinary = async (
 };
 
 /**
+ * Check if URL is a valid Cloudinary URL
+ */
+const isValidCloudinaryUrl = (url) => {
+  if (!url || typeof url !== "string") {
+    return false;
+  }
+
+  // Check if it's a Cloudinary URL
+  return url.includes("cloudinary.com") && url.includes("/upload/");
+};
+
+/**
  * Delete image from Cloudinary
  */
 export const deleteFromCloudinary = async (imageUrl) => {
   try {
+    // Validate URL before attempting deletion
+    if (!isValidCloudinaryUrl(imageUrl)) {
+      console.warn(`Skipping invalid Cloudinary URL: ${imageUrl}`);
+      return { result: "skipped", reason: "invalid_url" };
+    }
+
     const urlParts = imageUrl.split("/");
     const uploadIndex = urlParts.indexOf("upload");
 
     if (uploadIndex === -1) {
-      throw new Error("Invalid Cloudinary URL");
+      console.warn(`No 'upload' segment found in URL: ${imageUrl}`);
+      return { result: "skipped", reason: "invalid_format" };
     }
 
     // Get everything after 'upload/v123456789/'
@@ -58,11 +78,21 @@ export const deleteFromCloudinary = async (imageUrl) => {
       publicIdWithExtension.lastIndexOf(".")
     );
 
+    if (!publicId) {
+      console.warn(`Could not extract public_id from URL: ${imageUrl}`);
+      return { result: "skipped", reason: "no_public_id" };
+    }
+
     const result = await cloudinary.uploader.destroy(publicId);
+    console.log(`Deleted image with public_id: ${publicId}`, result);
     return result;
   } catch (error) {
-    console.error("Error deleting from Cloudinary:", error);
-    throw error;
+    console.error(
+      `Error deleting image from Cloudinary (${imageUrl}):`,
+      error.message
+    );
+    // Don't throw - just log and continue
+    return { result: "error", error: error.message };
   }
 };
 
@@ -72,13 +102,38 @@ export const deleteFromCloudinary = async (imageUrl) => {
 export const deleteMultipleFromCloudinary = async (imageUrls) => {
   try {
     if (!Array.isArray(imageUrls) || imageUrls.length === 0) {
-      return;
+      console.log("No images to delete");
+      return [];
     }
 
-    const deletePromises = imageUrls.map((url) => deleteFromCloudinary(url));
-    await Promise.all(deletePromises);
+    // Filter out invalid URLs before attempting deletion
+    const validUrls = imageUrls.filter((url) => isValidCloudinaryUrl(url));
+
+    if (validUrls.length === 0) {
+      console.warn("No valid Cloudinary URLs found to delete");
+      return [];
+    }
+
+    console.log(
+      `Deleting ${validUrls.length} valid images out of ${imageUrls.length} total`
+    );
+
+    // Use Promise.allSettled to handle individual failures gracefully
+    const deletePromises = validUrls.map((url) => deleteFromCloudinary(url));
+    const results = await Promise.allSettled(deletePromises);
+
+    // Log results
+    const successful = results.filter((r) => r.status === "fulfilled").length;
+    const failed = results.filter((r) => r.status === "rejected").length;
+
+    console.log(
+      `Image deletion complete: ${successful} succeeded, ${failed} failed`
+    );
+
+    return results;
   } catch (error) {
-    console.error("Error deleting multiple images:", error);
-    throw error;
+    console.error("Error in deleteMultipleFromCloudinary:", error);
+    // Don't throw - we still want product deletion to succeed
+    return [];
   }
 };
