@@ -1,15 +1,19 @@
+// admin/modules/purchaseInvoices/components/AddPurchaseInvoices.js
 import { useState, useEffect } from "react";
 import {
   useCreatePurchaseInvoice,
   useValidateProductsForInvoice,
 } from "../../slice/purchaseInvoiceSlice";
-import { useGetAllSuppliers } from "../../../suppliers/slice/supplierSlice";
+// ✅ Changed: Import useGetActiveSuppliers instead of useGetAllSuppliers
+import { useGetActiveSuppliers } from "../../../suppliers/slice/supplierSlice";
 import { useGetAllProducts } from "../../../../product/slice/productSlice";
 import { Plus, AlertCircle, CheckCircle, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
-  const { data: suppliers } = useGetAllSuppliers();
+  // ✅ Changed: Use useGetActiveSuppliers - only active suppliers will appear
+  const { data: suppliers, isLoading: suppliersLoading } =
+    useGetActiveSuppliers();
   const { data: products } = useGetAllProducts({ limit: 100 });
   const createInvoice = useCreatePurchaseInvoice();
   const validateProducts = useValidateProductsForInvoice();
@@ -191,6 +195,7 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* ✅ Supplier dropdown - Only shows ACTIVE suppliers */}
           <div>
             <label className="block text-sm font-medium mb-2">
               Supplier <span className="text-red-500">*</span>
@@ -202,14 +207,27 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
               }
               className="w-full px-3 py-2 border rounded-lg"
               required
+              disabled={suppliersLoading}
             >
-              <option value="">Select Supplier</option>
+              <option value="">
+                {suppliersLoading ? "Loading suppliers..." : "Select Supplier"}
+              </option>
               {suppliers?.data?.map((supplier) => (
                 <option key={supplier._id} value={supplier._id}>
-                  {supplier.name} - {supplier.company}
+                  {supplier.name} {supplier.company && `- ${supplier.company}`}
                 </option>
               ))}
             </select>
+            {/* ✅ Show warning if no active suppliers */}
+            {!suppliersLoading && suppliers?.data?.length === 0 && (
+              <div className="flex items-center gap-2 mt-2 text-amber-600">
+                <AlertCircle size={16} />
+                <span className="text-sm">
+                  No active suppliers available. Please activate a supplier
+                  first.
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Validation Status */}
@@ -453,7 +471,11 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
           <div className="flex gap-2">
             <button
               type="submit"
-              disabled={createInvoice.isPending || isValidating}
+              disabled={
+                createInvoice.isPending ||
+                isValidating ||
+                suppliers?.data?.length === 0
+              }
               className="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 disabled:bg-gray-400"
             >
               {createInvoice.isPending ? "Creating..." : "Create Invoice"}

@@ -1,9 +1,11 @@
+// admin/modules/products/pages/AddProduct.js
 import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useCreateProduct } from "../../../../product/slice/productSlice";
 import { useGetAllCategories } from "../../../../shop/slice/categorySlice";
 import { useGetAllBrands } from "../../../../shop/slice/brandSlice";
-import { useGetAllSuppliers } from "../../../suppliers/slice/supplierSlice";
+// ✅ Changed: Import useGetActiveSuppliers instead of useGetAllSuppliers
+import { useGetActiveSuppliers } from "../../../suppliers/slice/supplierSlice";
 import Sidebar from "../../../components/sidebar/Sidebar";
 import toast from "react-hot-toast";
 
@@ -16,8 +18,8 @@ function AddProduct() {
     description: "",
     price: "",
     category: "",
-    brand: "", // Brand field
-    supplier: "", // Supplier field (optional)
+    brand: "",
+    supplier: "",
     stock: "",
     images: [],
     isFeatured: false,
@@ -28,7 +30,9 @@ function AddProduct() {
   const createProduct = useCreateProduct();
   const { data: categories } = useGetAllCategories();
   const { data: brands } = useGetAllBrands();
-  const { data: suppliers } = useGetAllSuppliers();
+  // ✅ Changed: Use useGetActiveSuppliers - only active suppliers will appear
+  const { data: suppliers, isLoading: suppliersLoading } =
+    useGetActiveSuppliers();
 
   // Convert files to base64
   const fileToBase64 = (file) =>
@@ -76,7 +80,7 @@ function AddProduct() {
       toast.error(error.message);
     } finally {
       setUploading(false);
-      fileInputRef.current.value = ""; // Reset input
+      fileInputRef.current.value = "";
     }
   };
 
@@ -123,9 +127,9 @@ function AddProduct() {
       price: parseFloat(formData.price),
       category: formData.category,
       brand: formData.brand,
-      supplier: formData.supplier || undefined, // Optional
+      supplier: formData.supplier || undefined,
       stock: parseInt(formData.stock) || 0,
-      images: formData.images, // Base64 array
+      images: formData.images,
       isFeatured: Boolean(formData.isFeatured),
     };
 
@@ -293,6 +297,7 @@ function AddProduct() {
                   </select>
                 </div>
 
+                {/* ✅ Supplier dropdown - Only shows ACTIVE suppliers */}
                 <div>
                   <label className="block mb-2 font-medium">
                     Supplier (Optional)
@@ -303,14 +308,26 @@ function AddProduct() {
                       setFormData({ ...formData, supplier: e.target.value })
                     }
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    disabled={suppliersLoading}
                   >
-                    <option value="">Select Supplier (Optional)</option>
+                    <option value="">
+                      {suppliersLoading
+                        ? "Loading suppliers..."
+                        : "Select Supplier (Optional)"}
+                    </option>
                     {suppliers?.data?.map((supplier) => (
                       <option key={supplier._id} value={supplier._id}>
-                        {supplier.name}
+                        {supplier.name}{" "}
+                        {supplier.company && `- ${supplier.company}`}
                       </option>
                     ))}
                   </select>
+                  {/* ✅ Show info message if no active suppliers */}
+                  {!suppliersLoading && suppliers?.data?.length === 0 && (
+                    <p className="text-sm text-gray-500 mt-1">
+                      No active suppliers available
+                    </p>
+                  )}
                 </div>
               </div>
             </div>

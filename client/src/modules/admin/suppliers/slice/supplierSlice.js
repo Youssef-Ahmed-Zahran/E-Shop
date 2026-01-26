@@ -53,10 +53,34 @@ export const useCreateSupplier = () => {
   });
 };
 
+/**
+ * Get ALL suppliers (for admin management page - shows active & inactive)
+ * Use this in Supplier Management pages where admin needs to see all suppliers
+ */
 export const useGetAllSuppliers = (filters = {}) => {
   return useQuery({
     queryKey: [...QUERY_KEYS.SUPPLIERS, filters],
     queryFn: () => getAllSuppliers(filters),
+    staleTime: 3 * 60 * 1000,
+  });
+};
+
+/**
+ * Get ACTIVE suppliers only (for dropdowns in forms)
+ * Use this in Product creation, Purchase Invoice creation, etc.
+ * Inactive suppliers will NOT appear in these dropdowns
+ */
+export const useGetActiveSuppliers = (options = {}) => {
+  const { limit = 100, page = 1 } = options;
+
+  return useQuery({
+    queryKey: [...QUERY_KEYS.SUPPLIERS, "active", { page, limit }],
+    queryFn: () =>
+      getAllSuppliers({
+        page,
+        limit,
+        isActive: true, // Always filter for active only
+      }),
     staleTime: 3 * 60 * 1000,
   });
 };
