@@ -79,39 +79,41 @@ const ProductCard = memo(
 
     return (
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
-        <Link to={`/product/${product._id}`} className="block relative">
-          {/* ✅ Optimized image with lazy loading */}
-          <img
-            src={product.images[0] || "/placeholder.png"}
-            alt={product.name}
-            loading="lazy"
-            decoding="async"
-            className="w-full h-48 object-cover"
-          />
+        <Link to={`/product/${product._id}`} className="block relative group">
+          {/* ✅ Enhanced image container - h-48, h-56, or h-64 options */}
+          <div className="relative w-full h-56 bg-gray-50 overflow-hidden">
+            <img
+              src={product.images[0] || "/placeholder.png"}
+              alt={product.name}
+              loading="lazy"
+              decoding="async"
+              className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+            />
 
-          {/* Featured Badge */}
-          {product.isFeatured && (
-            <span className="absolute top-2 right-2 bg-yellow-400 text-xs font-semibold px-2 py-1 rounded">
-              Featured
-            </span>
-          )}
-
-          {/* Low Stock Badge */}
-          {isLowStock && (
-            <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-semibold px-2 py-1 rounded flex items-center gap-1">
-              <AlertTriangle size={12} />
-              Low Stock
-            </span>
-          )}
-
-          {/* Out of Stock Overlay */}
-          {isOutOfStock && (
-            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-              <span className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold">
-                Out of Stock
+            {/* Featured Badge */}
+            {product.isFeatured && (
+              <span className="absolute top-2 right-2 bg-yellow-400 text-xs font-semibold px-2 py-1 rounded shadow-md z-10">
+                Featured
               </span>
-            </div>
-          )}
+            )}
+
+            {/* Low Stock Badge */}
+            {isLowStock && !isOutOfStock && (
+              <span className="absolute top-2 left-2 bg-orange-500 text-white text-xs font-semibold px-2 py-1 rounded flex items-center gap-1 shadow-md z-10">
+                <AlertTriangle size={12} />
+                Low Stock
+              </span>
+            )}
+
+            {/* Out of Stock Overlay */}
+            {isOutOfStock && (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
+                <span className="bg-red-600 text-white px-4 py-2 rounded-lg font-semibold shadow-lg">
+                  Out of Stock
+                </span>
+              </div>
+            )}
+          </div>
         </Link>
 
         <div className="p-4">

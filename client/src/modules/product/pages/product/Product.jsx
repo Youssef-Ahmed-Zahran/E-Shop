@@ -95,24 +95,20 @@ function Product() {
     return null;
   }, [productData]);
 
-  // Debounced zoom handler
-  const debouncedZoom = useMemo(
-    () =>
-      debounce((e) => {
-        if (!productImages[selectedImage]) return;
-        const { left, top, width, height } =
-          e.currentTarget.getBoundingClientRect();
-        const x = ((e.clientX - left) / width) * 100;
-        const y = ((e.clientY - top) / height) * 100;
-        setZoomPosition({ x, y });
-      }, 50),
-    [productImages, selectedImage]
-  );
-
+  // Zoom handler without debounce for smoother experience
   const handleImageMove = (e) => {
-    if (isZoomed) {
-      debouncedZoom(e);
-    }
+    if (!isZoomed || !productImages[selectedImage]) return;
+
+    const { left, top, width, height } =
+      e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - left) / width) * 100;
+    const y = ((e.clientY - top) / height) * 100;
+
+    // Clamp values between 0 and 100
+    const clampedX = Math.max(0, Math.min(100, x));
+    const clampedY = Math.max(0, Math.min(100, y));
+
+    setZoomPosition({ x: clampedX, y: clampedY });
   };
 
   // Keyboard navigation for images
@@ -278,11 +274,11 @@ function Product() {
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-        {/* Images Section */}
+        {/* Images Section - FIXED */}
         <div className="space-y-4">
           {/* Main Image with Zoom */}
           <div
-            className="relative rounded-2xl overflow-hidden bg-gray-100 group"
+            className="relative rounded-2xl overflow-hidden bg-gray-100 group aspect-square"
             onMouseEnter={() => setIsZoomed(true)}
             onMouseLeave={() => setIsZoomed(false)}
             onMouseMove={handleImageMove}
@@ -298,7 +294,7 @@ function Product() {
             <img
               src={productImages[selectedImage] || "/placeholder.png"}
               alt={productData.name}
-              className="w-full h-96 object-cover cursor-zoom-in transition-transform duration-200"
+              className="w-full h-full object-contain p-4 cursor-zoom-in transition-transform duration-200"
               style={{
                 transform: isZoomed ? "scale(1.5)" : "scale(1)",
                 transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
