@@ -274,7 +274,7 @@ function Product() {
       </nav>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-        {/* Images Section - FIXED */}
+        {/* Images Section - FIXED to match FeaturedProducts */}
         <div className="space-y-4">
           {/* Main Image with Zoom */}
           <div
@@ -294,7 +294,7 @@ function Product() {
             <img
               src={productImages[selectedImage] || "/placeholder.png"}
               alt={productData.name}
-              className="w-full h-full object-contain p-4 cursor-zoom-in transition-transform duration-200"
+              className="w-full h-full object-cover cursor-zoom-in transition-transform duration-200"
               style={{
                 transform: isZoomed ? "scale(1.5)" : "scale(1)",
                 transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,

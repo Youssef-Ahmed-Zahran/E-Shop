@@ -80,14 +80,14 @@ const ProductCard = memo(
     return (
       <div className="bg-white rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-300">
         <Link to={`/product/${product._id}`} className="block relative group">
-          {/* ✅ Enhanced image container - h-48, h-56, or h-64 options */}
-          <div className="relative w-full h-56 bg-gray-50 overflow-hidden">
+          {/* ✅ Image container matching FeaturedProducts - h-64 with object-cover */}
+          <div className="relative w-full h-64 bg-gray-100 overflow-hidden">
             <img
               src={product.images[0] || "/placeholder.png"}
               alt={product.name}
               loading="lazy"
               decoding="async"
-              className="w-full h-full object-contain p-3 transition-transform duration-300 group-hover:scale-105"
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
             />
 
             {/* Featured Badge */}
