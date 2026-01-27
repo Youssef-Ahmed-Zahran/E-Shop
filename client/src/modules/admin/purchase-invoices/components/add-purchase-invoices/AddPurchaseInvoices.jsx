@@ -21,11 +21,11 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
   const [formData, setFormData] = useState({
     supplierId: "",
     items: [],
-    shippingCost: 0,
-    taxAmount: 0,
+    shippingCost: "",
+    taxAmount: "",
   });
   const [selectedProduct, setSelectedProduct] = useState("");
-  const [itemData, setItemData] = useState({ quantity: 1, unitPrice: 0 });
+  const [itemData, setItemData] = useState({ quantity: 1, unitPrice: "" });
   const [validationResults, setValidationResults] = useState(null);
   const [isValidating, setIsValidating] = useState(false);
 
@@ -62,6 +62,29 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
     }
   };
 
+  // ✅ NEW: Handler to auto-populate unit price when product is selected
+  const handleProductSelect = (productId) => {
+    setSelectedProduct(productId);
+
+    if (productId) {
+      const product = products?.data?.find((p) => p._id === productId);
+      if (product) {
+        // Get price from product (the field name is 'price' based on your schema)
+        const unitPrice = product.price || "";
+
+        console.log("Selected product:", product); // For debugging
+        console.log("Unit price:", unitPrice); // For debugging
+
+        setItemData({
+          ...itemData,
+          unitPrice: unitPrice,
+        });
+      }
+    } else {
+      setItemData({ quantity: 1, unitPrice: "" });
+    }
+  };
+
   const addItem = () => {
     const product = products?.data?.find((p) => p._id === selectedProduct);
     if (!product) {
@@ -79,11 +102,14 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
       return;
     }
 
+    // ✅ Updated to match backend schema (uses 'product' not 'productId')
     const newItem = {
-      productId: product._id,
+      product: product._id, // Backend expects 'product'
+      productId: product._id, // Keep for frontend validation
       productName: product.name,
       quantity: itemData.quantity,
       unitPrice: itemData.unitPrice,
+      totalPrice: itemData.quantity * itemData.unitPrice, // Calculate total
     };
 
     setFormData({
@@ -92,7 +118,7 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
     });
 
     setSelectedProduct("");
-    setItemData({ quantity: 1, unitPrice: 0 });
+    setItemData({ quantity: 1, unitPrice: "" });
   };
 
   const removeItem = (index) => {
@@ -135,7 +161,22 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
       }
     }
 
-    createInvoice.mutate(formData, {
+    // ✅ Prepare payload to match backend schema
+    const invoicePayload = {
+      supplier: formData.supplierId, // Backend expects 'supplier'
+      items: formData.items.map((item) => ({
+        product: item.product,
+        quantity: item.quantity,
+        unitPrice: item.unitPrice,
+        totalPrice: item.totalPrice,
+      })),
+      shippingCost: formData.shippingCost,
+      taxAmount: formData.taxAmount,
+      subtotal: formData.items.reduce((sum, item) => sum + item.totalPrice, 0),
+      totalAmount: calculateTotal(),
+    };
+
+    createInvoice.mutate(invoicePayload, {
       onSuccess: () => {
         toast.success("Purchase invoice created successfully!");
         resetForm();
@@ -154,8 +195,8 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
     setFormData({
       supplierId: "",
       items: [],
-      shippingCost: 0,
-      taxAmount: 0,
+      shippingCost: "",
+      taxAmount: "",
     });
     setValidationResults(null);
   };
@@ -289,13 +330,13 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
                 </label>
                 <select
                   value={selectedProduct}
-                  onChange={(e) => setSelectedProduct(e.target.value)}
+                  onChange={(e) => handleProductSelect(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg"
                 >
                   <option value="">Select Product</option>
                   {products?.data?.map((product) => (
                     <option key={product._id} value={product._id}>
-                      {product.name} (Stock: {product.stock})
+                      {product.name} (Stock: {product.stock}) - ${product.price}
                     </option>
                   ))}
                 </select>
@@ -324,8 +365,8 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
                 </label>
                 <input
                   type="number"
-                  placeholder="0.00"
-                  value={itemData.unitPrice}
+                  placeholder="0"
+                  value={itemData.unitPrice || ""}
                   onChange={(e) =>
                     setItemData({
                       ...itemData,
@@ -425,8 +466,8 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
               </label>
               <input
                 type="number"
-                placeholder="0.00"
-                value={formData.shippingCost}
+                placeholder="0"
+                value={formData.shippingCost || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
@@ -444,8 +485,8 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
               </label>
               <input
                 type="number"
-                placeholder="0.00"
-                value={formData.taxAmount}
+                placeholder="0"
+                value={formData.taxAmount || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
