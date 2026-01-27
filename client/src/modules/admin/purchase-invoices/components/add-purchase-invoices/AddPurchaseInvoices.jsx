@@ -161,28 +161,18 @@ function AddPurchaseInvoices({ showModal, setShowModal, onSuccess }) {
       }
     }
 
-    // ✅ Prepare payload to match backend schema
-    const invoicePayload = {
-      supplier: formData.supplierId, // Backend expects 'supplier'
-      items: formData.items.map((item) => ({
-        product: item.product,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        totalPrice: item.totalPrice,
-      })),
-      shippingCost: formData.shippingCost,
-      taxAmount: formData.taxAmount,
-      subtotal: formData.items.reduce((sum, item) => sum + item.totalPrice, 0),
-      totalAmount: calculateTotal(),
-    };
+    console.log("Submitting formData:", formData); // Debug log
 
-    createInvoice.mutate(invoicePayload, {
+    createInvoice.mutate(formData, {
       onSuccess: () => {
         toast.success("Purchase invoice created successfully!");
         resetForm();
         if (onSuccess) onSuccess();
       },
       onError: (error) => {
+        console.error("Full error object:", error);
+        console.error("Error response:", error.response);
+        console.error("Error data:", error.response?.data);
         toast.error(
           error.response?.data?.message || "Failed to create invoice"
         );
