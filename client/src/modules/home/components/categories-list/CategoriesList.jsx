@@ -8,17 +8,17 @@ function CategoriesList() {
   const [showLeftArrow, setShowLeftArrow] = useState(false);
   const [showRightArrow, setShowRightArrow] = useState(true);
 
-  // Fetch all categories without pagination for carousel
-  const { data, isLoading } = useGetAllCategories({ 
-    page: 1, 
-    limit: 100 // Get more categories for scrolling
+  const { data, isLoading } = useGetAllCategories({
+    page: 1,
+    limit: 100,
   });
-  
+
   const categories = data?.data || [];
 
   const checkScroll = () => {
     if (scrollContainerRef.current) {
-      const { scrollLeft, scrollWidth, clientWidth } = scrollContainerRef.current;
+      const { scrollLeft, scrollWidth, clientWidth } =
+        scrollContainerRef.current;
       setShowLeftArrow(scrollLeft > 0);
       setShowRightArrow(scrollLeft < scrollWidth - clientWidth - 10);
     }
@@ -27,13 +27,14 @@ function CategoriesList() {
   const scroll = (direction) => {
     if (scrollContainerRef.current) {
       const scrollAmount = 400;
-      const newScrollLeft = direction === 'left' 
-        ? scrollContainerRef.current.scrollLeft - scrollAmount
-        : scrollContainerRef.current.scrollLeft + scrollAmount;
-      
+      const newScrollLeft =
+        direction === "left"
+          ? scrollContainerRef.current.scrollLeft - scrollAmount
+          : scrollContainerRef.current.scrollLeft + scrollAmount;
+
       scrollContainerRef.current.scrollTo({
         left: newScrollLeft,
-        behavior: 'smooth'
+        behavior: "smooth",
       });
     }
   };
@@ -44,20 +45,19 @@ function CategoriesList() {
   return (
     <div className="bg-gray-50 py-16">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-900">
-              Shop by Category
-            </h2>
-            <p className="text-gray-600 mt-1">Browse our wide range of categories</p>
-          </div>
+        {/* Centered Header */}
+        <div className="text-center mb-8">
+          <h2 className="text-3xl font-bold text-gray-900">Shop by Category</h2>
+          <p className="text-gray-600 mt-1">
+            Browse our wide range of categories
+          </p>
         </div>
 
         <div className="relative group">
           {/* Left Arrow */}
           {showLeftArrow && (
             <button
-              onClick={() => scroll('left')}
+              onClick={() => scroll("left")}
               className="absolute left-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full p-3 hover:bg-gray-100 transition opacity-0 group-hover:opacity-100"
               aria-label="Scroll left"
             >
@@ -71,8 +71,8 @@ function CategoriesList() {
             onScroll={checkScroll}
             className="flex gap-4 overflow-x-auto scrollbar-hide scroll-smooth pb-4"
             style={{
-              scrollbarWidth: 'none',
-              msOverflowStyle: 'none',
+              scrollbarWidth: "none",
+              msOverflowStyle: "none",
             }}
           >
             {categories.map((category) => (
@@ -102,7 +102,7 @@ function CategoriesList() {
           {/* Right Arrow */}
           {showRightArrow && (
             <button
-              onClick={() => scroll('right')}
+              onClick={() => scroll("right")}
               className="absolute right-0 top-1/2 -translate-y-1/2 z-10 bg-white shadow-lg rounded-full p-3 hover:bg-gray-100 transition opacity-0 group-hover:opacity-100"
               aria-label="Scroll right"
             >
@@ -113,22 +113,25 @@ function CategoriesList() {
 
         {/* Scroll Indicators (dots) */}
         <div className="flex justify-center gap-2 mt-6">
-          {Array.from({ length: Math.ceil(categories.length / 5) }).map((_, index) => (
-            <button
-              key={index}
-              onClick={() => {
-                if (scrollContainerRef.current) {
-                  const scrollAmount = scrollContainerRef.current.clientWidth * index;
-                  scrollContainerRef.current.scrollTo({
-                    left: scrollAmount,
-                    behavior: 'smooth'
-                  });
-                }
-              }}
-              className="w-2 h-2 rounded-full bg-gray-300 hover:bg-blue-600 transition"
-              aria-label={`Scroll to section ${index + 1}`}
-            />
-          ))}
+          {Array.from({ length: Math.ceil(categories.length / 5) }).map(
+            (_, index) => (
+              <button
+                key={index}
+                onClick={() => {
+                  if (scrollContainerRef.current) {
+                    const scrollAmount =
+                      scrollContainerRef.current.clientWidth * index;
+                    scrollContainerRef.current.scrollTo({
+                      left: scrollAmount,
+                      behavior: "smooth",
+                    });
+                  }
+                }}
+                className="w-2 h-2 rounded-full bg-gray-300 hover:bg-blue-600 transition"
+                aria-label={`Scroll to section ${index + 1}`}
+              />
+            )
+          )}
         </div>
       </div>
 
