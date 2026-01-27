@@ -3,9 +3,7 @@ import { Link } from "react-router-dom";
 import {
   useReactTable,
   getCoreRowModel,
-  getPaginationRowModel,
   getSortedRowModel,
-  getFilteredRowModel,
   flexRender,
 } from "@tanstack/react-table";
 import {
@@ -43,13 +41,40 @@ const ProductTableRow = memo(({ row }) => {
 ProductTableRow.displayName = "ProductTableRow";
 
 function Products() {
-  const [filters, setFilters] = useState({ page: 1, limit: 10 });
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState([]);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [pageSize, setPageSize] = useState(10);
 
-  const { data: products, isLoading } = useGetAllProducts(filters);
+  // ✅ Fetch products with server-side pagination INCLUDING INACTIVE PRODUCTS
+  const {
+    data: productsData,
+    isLoading,
+    refetch,
+  } = useGetAllProducts({
+    page: pageIndex + 1,
+    limit: pageSize,
+    keyword: globalFilter || undefined,
+    includeInactive: true, // ✅ Include inactive products
+  });
+
   const deleteProduct = useDeleteProduct();
   const updateProduct = useUpdateProduct();
+
+  // ✅ Extract products and filter out deleted ones (isDeleted: true)
+  const products = useMemo(() => {
+    const allProducts = productsData?.data || [];
+    // Filter out deleted products from the UI
+    return allProducts.filter((product) => !product.isDeleted);
+  }, [productsData]);
+
+  const totalProducts = useMemo(() => {
+    return productsData?.pagination?.total || 0;
+  }, [productsData]);
+
+  const pageCount = useMemo(() => {
+    return productsData?.pagination?.pages || 1;
+  }, [productsData]);
 
   // ✅ Memoized handlers
   const handleDelete = useCallback(
@@ -58,6 +83,8 @@ function Products() {
         deleteProduct.mutate(id, {
           onSuccess: () => {
             toast.success("Product deleted successfully");
+            // Force immediate refetch to remove from UI
+            refetch();
           },
           onError: (error) => {
             toast.error(
@@ -67,7 +94,7 @@ function Products() {
         });
       }
     },
-    [deleteProduct]
+    [deleteProduct, refetch]
   );
 
   const handleToggleFeatured = useCallback(
@@ -104,6 +131,41 @@ function Products() {
     [updateProduct]
   );
 
+  // ✅ Handler to toggle active/inactive status
+  const handleToggleActive = useCallback(
+    (product) => {
+      const updatedData = {
+        name: product.name,
+        description: product.description,
+        price: product.price,
+        category: product.category?._id,
+        brand: product.brand?._id,
+        stock: product.stock,
+        isFeatured: product.isFeatured,
+        isActive: !product.isActive,
+      };
+
+      updateProduct.mutate(
+        { id: product._id, data: updatedData },
+        {
+          onSuccess: () => {
+            toast.success(
+              `Product ${
+                !product.isActive ? "activated" : "deactivated"
+              } successfully`
+            );
+          },
+          onError: (error) => {
+            toast.error(
+              error.response?.data?.message || "Failed to update product"
+            );
+          },
+        }
+      );
+    },
+    [updateProduct]
+  );
+
   // ✅ Memoize columns definition
   const columns = useMemo(
     () => [
@@ -111,26 +173,47 @@ function Products() {
         accessorKey: "images",
         header: "Image",
         cell: ({ row }) => (
-          <img
-            src={row.original.images[0] || "/placeholder.png"}
-            alt={row.original.name}
-            className="w-12 h-12 object-cover rounded-lg"
-          />
+          <div className="relative">
+            <img
+              src={row.original.images?.[0] || "/placeholder.png"}
+              alt={row.original.name}
+              className={`w-12 h-12 object-cover rounded-lg ${
+                !row.original.isActive ? "opacity-40" : ""
+              }`}
+            />
+            {!row.original.isActive && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-[10px] font-bold text-red-600 bg-white px-1 rounded shadow">
+                  OFF
+                </span>
+              </div>
+            )}
+          </div>
         ),
         enableSorting: false,
       },
       {
         accessorKey: "name",
         header: "Name",
-        cell: ({ getValue }) => (
-          <span className="font-medium text-gray-900">{getValue()}</span>
+        cell: ({ getValue, row }) => (
+          <span
+            className={`font-medium ${
+              row.original.isActive ? "text-gray-900" : "text-gray-400"
+            }`}
+          >
+            {getValue()}
+          </span>
         ),
       },
       {
         accessorKey: "price",
         header: "Price",
-        cell: ({ getValue }) => (
-          <span className="text-gray-900 font-semibold">
+        cell: ({ getValue, row }) => (
+          <span
+            className={`font-semibold ${
+              row.original.isActive ? "text-gray-900" : "text-gray-400"
+            }`}
+          >
             ${getValue()?.toFixed(2)}
           </span>
         ),
@@ -138,12 +221,14 @@ function Products() {
       {
         accessorKey: "stock",
         header: "Stock",
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const stock = getValue();
           return (
             <span
               className={`font-semibold ${
-                stock > 10
+                !row.original.isActive
+                  ? "text-gray-400"
+                  : stock > 10
                   ? "text-green-600"
                   : stock > 0
                   ? "text-yellow-600"
@@ -158,8 +243,14 @@ function Products() {
       {
         accessorKey: "category.name",
         header: "Category",
-        cell: ({ getValue }) => (
-          <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+        cell: ({ getValue, row }) => (
+          <span
+            className={`px-2 py-1 rounded-full text-sm ${
+              row.original.isActive
+                ? "bg-blue-100 text-blue-800"
+                : "bg-gray-100 text-gray-400"
+            }`}
+          >
             {getValue() || "N/A"}
           </span>
         ),
@@ -167,16 +258,22 @@ function Products() {
       {
         accessorKey: "isActive",
         header: "Status",
-        cell: ({ getValue }) => (
-          <span
-            className={`px-3 py-1 rounded-full text-sm font-medium ${
-              getValue()
-                ? "bg-green-100 text-green-800"
-                : "bg-gray-100 text-gray-800"
+        cell: ({ row }) => (
+          <button
+            onClick={() => handleToggleActive(row.original)}
+            className={`px-3 py-1 rounded-full text-sm font-medium cursor-pointer transition-colors ${
+              row.original.isActive
+                ? "bg-green-100 text-green-800 hover:bg-green-200"
+                : "bg-red-100 text-red-800 hover:bg-red-200"
             }`}
+            title={
+              row.original.isActive
+                ? "Click to deactivate"
+                : "Click to activate"
+            }
           >
-            {getValue() ? "Active" : "Inactive"}
-          </span>
+            {row.original.isActive ? "Active" : "Inactive"}
+          </button>
         ),
       },
       {
@@ -186,12 +283,21 @@ function Products() {
           <div className="flex gap-2">
             <button
               onClick={() => handleToggleFeatured(row.original)}
+              disabled={!row.original.isActive}
               className={`p-2 rounded-lg transition-colors ${
                 row.original.isFeatured
                   ? "text-yellow-500 hover:bg-yellow-50"
                   : "text-gray-400 hover:bg-gray-100"
+              } ${
+                !row.original.isActive ? "opacity-50 cursor-not-allowed" : ""
               }`}
-              title={row.original.isFeatured ? "Unfeature" : "Feature"}
+              title={
+                !row.original.isActive
+                  ? "Activate product to feature it"
+                  : row.original.isFeatured
+                  ? "Unfeature"
+                  : "Feature"
+              }
             >
               <Star
                 size={18}
@@ -224,24 +330,44 @@ function Products() {
         enableSorting: false,
       },
     ],
-    [handleDelete, handleToggleFeatured]
+    [handleDelete, handleToggleFeatured, handleToggleActive]
   );
 
-  // Initialize table
+  // ✅ Initialize table with manual pagination
   const table = useReactTable({
-    data: products?.data || [],
+    data: products,
     columns,
+    pageCount: pageCount,
     state: {
       sorting,
-      globalFilter,
+      pagination: {
+        pageIndex,
+        pageSize,
+      },
     },
     onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
+    onPaginationChange: (updater) => {
+      if (typeof updater === "function") {
+        const newState = updater({ pageIndex, pageSize });
+        setPageIndex(newState.pageIndex);
+        setPageSize(newState.pageSize);
+      }
+    },
     getCoreRowModel: getCoreRowModel(),
     getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-    getPaginationRowModel: getPaginationRowModel(),
+    manualPagination: true,
   });
+
+  // ✅ Reset to first page when search changes
+  const handleSearchChange = (e) => {
+    const value = e.target.value;
+    setGlobalFilter(value);
+    setPageIndex(0);
+  };
+
+  // ✅ Calculate pagination display values
+  const startRow = totalProducts > 0 ? pageIndex * pageSize + 1 : 0;
+  const endRow = Math.min((pageIndex + 1) * pageSize, totalProducts);
 
   return (
     <div className="flex min-h-screen bg-gray-50">
@@ -274,7 +400,7 @@ function Products() {
             <input
               type="text"
               value={globalFilter ?? ""}
-              onChange={(e) => setGlobalFilter(e.target.value)}
+              onChange={handleSearchChange}
               placeholder="Search products..."
               className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
@@ -332,7 +458,7 @@ function Products() {
                     ))}
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {table.getRowModel().rows.length === 0 ? (
+                    {products.length === 0 ? (
                       <tr>
                         <td
                           colSpan={columns.length}
@@ -354,68 +480,52 @@ function Products() {
             </div>
 
             {/* Pagination */}
-            <div className="mt-6 flex items-center justify-between bg-white px-6 py-4 rounded-lg shadow-md border border-gray-200">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-700">
-                  Showing{" "}
-                  <span className="font-semibold">
-                    {table.getState().pagination.pageIndex *
-                      table.getState().pagination.pageSize +
-                      1}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-semibold">
-                    {Math.min(
-                      (table.getState().pagination.pageIndex + 1) *
-                        table.getState().pagination.pageSize,
-                      table.getFilteredRowModel().rows.length
-                    )}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-semibold">
-                    {table.getFilteredRowModel().rows.length}
-                  </span>{" "}
-                  results
-                </span>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => table.previousPage()}
-                  disabled={!table.getCanPreviousPage()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
-                >
-                  Previous
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from(
-                    { length: table.getPageCount() },
-                    (_, i) => i
-                  ).map((pageIndex) => (
-                    <button
-                      key={pageIndex}
-                      onClick={() => table.setPageIndex(pageIndex)}
-                      className={`px-4 py-2 rounded-lg transition-colors ${
-                        table.getState().pagination.pageIndex === pageIndex
-                          ? "bg-blue-600 text-white"
-                          : "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                      }`}
-                    >
-                      {pageIndex + 1}
-                    </button>
-                  ))}
+            {products.length > 0 && (
+              <div className="mt-6 flex items-center justify-between bg-white px-6 py-4 rounded-lg shadow-md border border-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-700">
+                    Showing <span className="font-semibold">{startRow}</span> to{" "}
+                    <span className="font-semibold">{endRow}</span> of{" "}
+                    <span className="font-semibold">{totalProducts}</span>{" "}
+                    results
+                  </span>
                 </div>
 
-                <button
-                  onClick={() => table.nextPage()}
-                  disabled={!table.getCanNextPage()}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
-                >
-                  Next
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => table.previousPage()}
+                    disabled={!table.getCanPreviousPage()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                  >
+                    Previous
+                  </button>
+
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: pageCount }, (_, i) => i).map((i) => (
+                      <button
+                        key={i}
+                        onClick={() => table.setPageIndex(i)}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          pageIndex === i
+                            ? "bg-blue-600 text-white"
+                            : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                        }`}
+                      >
+                        {i + 1}
+                      </button>
+                    ))}
+                  </div>
+
+                  <button
+                    onClick={() => table.nextPage()}
+                    disabled={!table.getCanNextPage()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:bg-gray-300 disabled:cursor-not-allowed hover:bg-blue-700 transition-colors"
+                  >
+                    Next
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
           </>
         )}
       </div>
